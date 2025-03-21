@@ -10,3 +10,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+INSERT INTO users (first_name, last_name, email, password_hash, role)
+VALUES ('John', 'Doe', 'johndoe@example.com', 'password', 'admin'),
+       ('Jane', 'Doe', 'janedoe@example.com', 'password', 'customer'),
