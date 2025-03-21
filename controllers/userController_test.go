@@ -5,6 +5,7 @@ import (
     "net/http"
     "net/http/httptest"
     "testing"
+	"database/sql"
 
     "github.com/DATA-DOG/go-sqlmock"
     "github.com/gin-gonic/gin"
@@ -30,12 +31,12 @@ func TestCreateUser_Success(t *testing.T) {
 
     // Create a sample user payload
     jsonPayload := `{
-        "FirstName": "John",
-        "LastName": "Doe",
-        "Email": "john@example.com",
-        "PassHash": "hashedpassword",
-        "PhoneNum": "1234567890",
-        "Role": "user"
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john@example.com",
+        "password_hash": "hashedpassword",
+        "phone_number": "1234567890",
+        "role": "user"
     }`
     req, err := http.NewRequest("POST", "/users", bytes.NewBufferString(jsonPayload))
     if err != nil {
@@ -56,3 +57,64 @@ func TestCreateUser_Success(t *testing.T) {
         t.Errorf("there were unfulfilled expectations: %s", err)
     }
 }
+
+func TestCreateUser_ErrorCases(t *testing.T) {
+    tests := []struct {
+        name           string
+        payload        string
+        setupMock      func(mock sqlmock.Sqlmock)
+        expectedStatus int
+        expectedBody   string
+    }{
+        {
+            name:           "invalid JSON",
+            payload:        `{"invalid": "json",`,
+            setupMock:      func(mock sqlmock.Sqlmock) {},
+            expectedStatus: http.StatusBadRequest,
+            expectedBody:   "Failed to parse the request body",
+        },
+        {
+            name:    "database error",
+            payload: `{"FirstName": "Jane", "LastName": "Doe", "Email": "jane@example.com", "PassHash": "hash", "PhoneNum": "0987654321", "Role": "user"}`,
+            setupMock: func(mock sqlmock.Sqlmock) {
+                mock.ExpectExec("INSERT INTO users").WillReturnError(sql.ErrConnDone)
+            },
+            expectedStatus: http.StatusInternalServerError,
+            expectedBody:   "Failed to insert the user into the database",
+        },
+    }
+
+    for _, tc := range tests {
+        t.Run(tc.name, func(t *testing.T) {
+            // Setup mock DB
+            db, mock, err := sqlmock.New()
+            if err != nil {
+                t.Fatalf("error opening stub database: %v", err)
+            }
+            defer db.Close()
+
+            tc.setupMock(mock)
+
+            gin.SetMode(gin.TestMode)
+            router := gin.Default()
+            router.POST("/users", CreateUser(db))
+
+            req, err := http.NewRequest("POST", "/users", bytes.NewBufferString(tc.payload))
+            if err != nil {
+                t.Fatalf("Could not create request: %v", err)
+            }
+            req.Header.Set("Content-Type", "application/json")
+
+            w := httptest.NewRecorder()
+            router.ServeHTTP(w, req)
+
+            assert.Equal(t, tc.expectedStatus, w.Code)
+            assert.Contains(t, w.Body.String(), tc.expectedBody)
+
+            if err := mock.ExpectationsWereMet(); err != nil {
+                t.Errorf("unfulfilled expectations: %s", err)
+            }
+        })
+    }
+}
+
