@@ -16,6 +16,7 @@ type User struct {
 	PhoneNum string `json:"phone_number"`
 	Role string `json:"role"`
 	CreatedAt string `json:"created_at"`
+	UpdateAt string `json:"updated_at"`
 }
 
 func GetUsers(db *sql.DB) gin.HandlerFunc {
@@ -42,6 +43,7 @@ func GetUsers(db *sql.DB) gin.HandlerFunc {
 				&user.PhoneNum,
 				&user.Role,
 				&user.CreatedAt,
+				&user.UpdateAt,
 			)
 			if err != nil {
 				fmt.Println(err)
