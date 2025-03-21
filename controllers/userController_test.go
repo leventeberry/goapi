@@ -98,7 +98,7 @@ func TestGetUsers_ErrorCases(t *testing.T) {
 	// Validate response
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
-	assert.Contains(t, w.Body.String(), "Failed to fetch users from the database")
+	assert.Contains(t, w.Body.String(), "Failed to query the database")
 
 	// Ensure mock expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -123,7 +123,7 @@ func TestGetUser_Success(t *testing.T) {
 	)
 
 	// Expect query with stricter match
-	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").WithArgs(1).WillReturnRows(rows)
+	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").WithArgs("1").WillReturnRows(rows)
 
 	// Define router and endpoint
 	gin.SetMode(gin.TestMode)
@@ -153,6 +153,8 @@ func TestGetUser_Success(t *testing.T) {
 	assert.Equal(t, "test@test.com", user.Email)
 	assert.Equal(t, "1234567890", user.PhoneNum)
 	assert.Equal(t, "user", user.Role)
+	assert.Equal(t, "2021-01-01", user.CreatedAt)
+	assert.Equal(t, "2021-01-01", user.UpdateAt)
 
 	// Check if all expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {
