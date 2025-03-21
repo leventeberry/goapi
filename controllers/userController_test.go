@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"fmt"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
-// Test for the GetUsers function
+// Success Test for the GetUsers function
 func TestGetUsers_Success(t *testing.T) {
 	// Setup mock DB
 	db, mock, err := sqlmock.New()
@@ -70,6 +70,7 @@ func TestGetUsers_Success(t *testing.T) {
 	}
 }
 
+// Error Test for the GetUsers function
 func TestGetUsers_ErrorCases(t *testing.T) {
 	// Setup mock DB
 	db, mock, err := sqlmock.New()
@@ -106,7 +107,7 @@ func TestGetUsers_ErrorCases(t *testing.T) {
 	}
 }
 
-// Test for the GetUser function
+// Success Test for the GetUser function
 func TestGetUser_Success(t *testing.T) {
 	// Setup mock DB
 	db, mock, err := sqlmock.New()
@@ -162,6 +163,7 @@ func TestGetUser_Success(t *testing.T) {
 	}
 }
 
+// Error Test for the GetUser function
 func TestGetUser_ErrorCases(t *testing.T) {
 	// Setup mock DB
 	db, mock, err := sqlmock.New()
@@ -199,7 +201,7 @@ func TestGetUser_ErrorCases(t *testing.T) {
 	}
 }
 
-// Test for the CreateUser function
+// Sucsess Test for the CreateUser function
 func TestCreateUser_Success(t *testing.T) {
     // Setup: Create a sqlmock database
     db, mock, err := sqlmock.New()
@@ -246,6 +248,7 @@ func TestCreateUser_Success(t *testing.T) {
     }
 }
 
+// Error Test for the CreateUser function
 func TestCreateUser_ErrorCases(t *testing.T) {
     tests := []struct {
         name           string
@@ -305,4 +308,112 @@ func TestCreateUser_ErrorCases(t *testing.T) {
         })
     }
 }
+
+// Success Test for the UpdateUser function
+// func TestUpdateUser_Success(t *testing.T) {
+// 	// Setup: Create a sqlmock database
+// 	db, mock, err := sqlmock.New()
+// 	if err != nil {
+// 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+// 	}
+// 	defer db.Close()
+
+// 	// Set expected DB behavior for success case
+// 	mock.ExpectExec("UPDATE users").WithArgs("John", "Doe", "testty@test.com", "hashedpassword", "1234567890", "user", 1).
+// 		WillReturnResult(sqlmock.NewResult(1, 1))
+
+// 	// Create a Gin engine in test mode
+// 	gin.SetMode(gin.TestMode)
+// 	router := gin.Default()
+// 	router.PUT("/users/:id", UpdateUser(db))
+
+// 	// Create a sample user payload
+// 	jsonPayload := `{
+// 		"first_name": "John",
+// 		"last_name": "Doe",
+// 		"email": "testty@test.com",
+// 		"password_hash": "hashedpassword",
+// 		"phone_number": "1234567890",
+// 		"role": "user"
+// 	}`
+// 	req, err := http.NewRequest("PUT", "/users/1", bytes.NewBufferString(jsonPayload))
+// 	if err != nil {
+// 		t.Fatalf("Could not create request: %v", err)
+// 	}
+// 	req.Header.Set("Content-Type", "application/json")
+
+// 	// Record the response
+// 	w := httptest.NewRecorder()
+// 	router.ServeHTTP(w, req)
+
+// 	// Assert on the response
+// 	assert.Equal(t, http.StatusOK, w.Code)
+// 	assert.Contains(t, w.Body.String(), "User updated successfully")
+
+// 	// Ensure all expectations were met
+// 	if err := mock.ExpectationsWereMet(); err != nil {
+// 		t.Errorf("there were unfulfilled expectations: %s", err)
+// 	}
+// }
+
+// Error Test for the UpdateUser function
+// func TestUpdateUser_ErrorCases(t *testing.T) {
+// 	tests := []struct {
+// 		name           string
+// 		payload        string
+// 		setupMock      func(mock sqlmock.Sqlmock)
+// 		expectedStatus int
+// 		expectedBody   string
+// 	}{
+// 		{
+// 			name:           "invalid JSON",
+// 			payload:        `{"invalid": "json"}`,
+// 			setupMock:      func(mock sqlmock.Sqlmock) {},
+// 			expectedStatus: http.StatusBadRequest,
+// 			expectedBody:   "Failed to parse the request body",
+// 		},
+// 		{
+// 			name:    "database error",
+// 			payload: `{"FirstName": "Jane", "LastName": "Doe", "Email": "test@test.com", "PassHash": "hash", "PhoneNum": "0987654321", "Role": "user"}`,
+// 			setupMock: func(mock sqlmock.Sqlmock) {
+// 				mock.ExpectExec("UPDATE users").WillReturnError(sql.ErrConnDone)
+// 			},
+// 			expectedStatus: http.StatusInternalServerError,
+// 			expectedBody:   "Failed to update the user in the database",
+// 		},
+// 	}
+
+// 	for _, tc := range tests {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			// Setup mock DB
+// 			db, mock, err := sqlmock.New()
+// 			if err != nil {
+// 				t.Fatalf("error opening stub database: %v", err)
+// 			}
+// 			defer db.Close()
+
+// 			tc.setupMock(mock)
+
+// 			gin.SetMode(gin.TestMode)
+// 			router := gin.Default()
+// 			router.PUT("/users/:id", UpdateUser(db))
+
+// 			req, err := http.NewRequest("PUT", "/users/1", bytes.NewBufferString(tc.payload))
+// 			if err != nil {
+// 				t.Fatalf("Could not create request: %v", err)
+// 			}
+// 			req.Header.Set("Content-Type", "application/json")
+
+// 			w := httptest.NewRecorder()
+// 			router.ServeHTTP(w, req)
+
+// 			assert.Equal(t, tc.expectedStatus, w.Code)
+// 			assert.Contains(t, w.Body.String(), tc.expectedBody)
+
+// 			if err := mock.ExpectationsWereMet(); err != nil {
+// 				t.Errorf("unfulfilled expectations: %s", err)
+// 			}
+// 		})
+// 	}
+// }
 

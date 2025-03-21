@@ -18,10 +18,12 @@ func main() {
     // Create a new router
     router := gin.Default()
 
-    // Pass handler functions correctly
+    // User Routes
     router.GET("/users", controllers.GetUsers(db))
     router.GET("/users/:id", controllers.GetUser(db))
     router.POST("/users", controllers.CreateUser(db))
+    router.PUT("/users/:id", controllers.UpdateUser(db))
+    router.DELETE("/users/:id", controllers.DeleteUser(db))
 
     // Start the server (blocking call)
     router.Run(":8080")

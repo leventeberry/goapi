@@ -121,3 +121,61 @@ func CreateUser(db *sql.DB) gin.HandlerFunc {
 		c.JSON(200, gin.H{"message": "User created successfully"})
 	}
 }
+
+func UpdateUser(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get the user ID from the URL
+		userID := c.Param("id")
+		id, err := strconv.ParseInt(userID, 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Parse the request body
+		var user User
+
+		err = c.BindJSON(&user)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(400, gin.H{"error": "Failed to parse the request body"})
+			return
+		}
+
+		// Update the user in the database
+		_, err = db.Exec("UPDATE users SET first_name = ?, last_name = ?, email = ?, password_hash = ?, phone_number = ?, role = ? WHERE user_id = ?", &user.FirstName, &user.LastName, &user.Email, &user.PassHash, &user.PhoneNum, &user.Role, id)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(500, gin.H{"error": "Failed to update the user in the database"})
+			return
+		}
+
+		// Return a success response
+		c.JSON(200, gin.H{"message": "User updated successfully"})
+	}
+}
+
+func DeleteUser(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get the user ID from the URL
+		userID := c.Param("id")
+		id, err := strconv.ParseInt(userID, 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		// Delete the user from the database
+		_, err = db.Exec("DELETE FROM users WHERE user_id = ?", id)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(500, gin.H{"error": "Failed to delete the user from the database"})
+			return
+		}
+
+		// Return a success response
+		c.JSON(200, gin.H{"message": "User deleted successfully"})
+	}
+}
