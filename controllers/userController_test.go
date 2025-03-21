@@ -170,8 +170,9 @@ func TestGetUser_ErrorCases(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Simulate a DB error
-	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").WithArgs(1).
+	// Expect query with int64 arg
+	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").
+		WithArgs(int64(1)).
 		WillReturnError(fmt.Errorf("database connection error"))
 
 	// Setup Gin router

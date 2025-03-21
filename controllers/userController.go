@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -62,12 +64,18 @@ func GetUser(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the user ID from the URL
 		userID := c.Param("id")
+		id, err := strconv.ParseInt(userID, 10, 64)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
 
 		// Query the database
-		row := db.QueryRow("SELECT * FROM users WHERE user_id = ?", userID)
+		row := db.QueryRow("SELECT * FROM users WHERE user_id = ?", id)
 
 		var user User
-		err := row.Scan(
+		err = row.Scan(
 			&user.ID,
 			&user.FirstName,
 			&user.LastName,
