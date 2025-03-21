@@ -88,7 +88,7 @@ func GetUser(db *sql.DB) gin.HandlerFunc {
 		)
 		if err != nil {
 			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to scan the row"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user from the database"})
 			return
 		}
 
