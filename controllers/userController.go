@@ -21,6 +21,7 @@ type User struct {
 	UpdateAt string `json:"updated_at"`
 }
 
+
 func GetUsers(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Query the database

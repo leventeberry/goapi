@@ -5,6 +5,7 @@ go 1.24.1
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/leventeberry/go-mysql v0.0.0-20250320173601-ed180d2e7d49
 	github.com/stretchr/testify v1.9.0
 )
