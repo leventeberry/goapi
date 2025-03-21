@@ -1,54 +1,71 @@
 package controllers
 
 import (
-    "bytes"
-    "net/http"
-    "net/http/httptest"
-    "testing"
+	"bytes"
 	"database/sql"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-    "github.com/DATA-DOG/go-sqlmock"
-    "github.com/gin-gonic/gin"
-    "github.com/stretchr/testify/assert"
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetUsers_Success(t *testing.T) {
-	// Setup: Create a sqlmock database
+	// Setup mock DB
 	db, mock, err := sqlmock.New()
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Fatalf("unexpected error when opening stub database: %s", err)
 	}
 	defer db.Close()
 
-	// Set expected DB behavior for success case
-	rows := sqlmock.NewRows([]string{"user_id", "first_name", "last_name", "email", "password_hash", "phone_number", "role", "created_at", "updated_at"}).
-		AddRow("1", "John", "Doe", "test@test.com", "hashedpassword", "1234567890", "user", "2021-01-01", "2021-01-01")
-	mock.ExpectQuery("SELECT * FROM users").WillReturnRows(rows)
+	// Prepare mock rows
+	rows := sqlmock.NewRows([]string{
+		"user_id", "first_name", "last_name", "email", "password_hash", "phone_number", "role", "created_at", "updated_at",
+	}).AddRow(
+		"1", "John", "Doe", "test@test.com", "hashedpassword", "1234567890", "user", "2021-01-01", "2021-01-01",
+	)
 
-	// Create a Gin engine in test mode
+	// Expect query with stricter match
+	mock.ExpectQuery("^SELECT \\* FROM users$").WillReturnRows(rows)
+
+	// Define router and endpoint
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
 	router.GET("/users", GetUsers(db))
 
-	// Record the response
-	w := httptest.NewRecorder()
+	// Simulate GET request
 	req, err := http.NewRequest("GET", "/users", nil)
 	if err != nil {
-		t.Fatalf("Could not create request: %v", err)
+		t.Fatalf("failed to create HTTP request: %v", err)
 	}
+	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Assert on the response
+	// Assert response
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "1")
-	assert.Contains(t, w.Body.String(), "John")
-	assert.Contains(t, w.Body.String(), "Doe")
-	assert.Contains(t, w.Body.String(), "test@test.com")
-	assert.Contains(t, w.Body.String(), "hashedpassword")
-	assert.Contains(t, w.Body.String(), "1234567890")
-	assert.Contains(t, w.Body.String(), "user")
-	assert.Contains(t, w.Body.String(), "2021-01-01")
-	assert.Contains(t, w.Body.String(), "2021-01-01")
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+
+
+	var users []User
+	if err := json.Unmarshal(w.Body.Bytes(), &users); err != nil {
+		t.Fatalf("failed to parse response JSON: %v", err)
+	}
+
+	// Validate user data
+	assert.Len(t, users, 1)
+	assert.Equal(t, "John", users[0].FirstName)
+	assert.Equal(t, "Doe", users[0].LastName)
+	assert.Equal(t, "test@test.com", users[0].Email)
+	assert.Equal(t, "1234567890", users[0].PhoneNum)
+	assert.Equal(t, "user", users[0].Role)
+
+	// Check if all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
 }
 
 func TestCreateUser_Success(t *testing.T) {
