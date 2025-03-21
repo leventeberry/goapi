@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Test for the GetUsers function
 func TestGetUsers_Success(t *testing.T) {
 	// Setup mock DB
 	db, mock, err := sqlmock.New()
@@ -105,7 +106,97 @@ func TestGetUsers_ErrorCases(t *testing.T) {
 	}
 }
 
+// Test for the GetUser function
+func TestGetUser_Success(t *testing.T) {
+	// Setup mock DB
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("unexpected error when opening stub database: %s", err)
+	}
+	defer db.Close()
 
+	// Prepare mock rows
+	rows := sqlmock.NewRows([]string{
+		"user_id", "first_name", "last_name", "email", "password_hash", "phone_number", "role", "created_at", "updated_at",
+	}).AddRow(
+		"1", "John", "Doe", "test@test.com", "hashedpassword", "1234567890", "user", "2021-01-01", "2021-01-01",
+	)
+
+	// Expect query with stricter match
+	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").WithArgs(1).WillReturnRows(rows)
+
+	// Define router and endpoint
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/users/:id", GetUser(db))
+
+	// Simulate GET request
+	req, err := http.NewRequest("GET", "/users/1", nil)
+	if err != nil {
+		t.Fatalf("failed to create HTTP request: %v", err)
+	}
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	
+	// Assert response
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+
+	var user User
+	if err := json.Unmarshal(w.Body.Bytes(), &user); err != nil {
+		t.Fatalf("failed to parse response JSON: %v", err)
+	}
+
+	// Validate user data
+	assert.Equal(t, "John", user.FirstName)
+	assert.Equal(t, "Doe", user.LastName)
+	assert.Equal(t, "test@test.com", user.Email)
+	assert.Equal(t, "1234567890", user.PhoneNum)
+	assert.Equal(t, "user", user.Role)
+
+	// Check if all expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestGetUser_ErrorCases(t *testing.T) {
+	// Setup mock DB
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("unexpected error when opening stub database: %s", err)
+	}
+	defer db.Close()
+
+	// Simulate a DB error
+	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").WithArgs(1).
+		WillReturnError(fmt.Errorf("database connection error"))
+
+	// Setup Gin router
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/users/:id", GetUser(db))
+
+	// Create request and record response
+	req, err := http.NewRequest("GET", "/users/1", nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Validate response
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+	assert.Contains(t, w.Body.String(), "Failed to fetch user from the database")
+
+	// Ensure mock expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unfulfilled expectations: %s", err)
+	}
+}
+
+// Test for the CreateUser function
 func TestCreateUser_Success(t *testing.T) {
     // Setup: Create a sqlmock database
     db, mock, err := sqlmock.New()
