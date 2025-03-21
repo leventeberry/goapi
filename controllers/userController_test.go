@@ -69,7 +69,7 @@ func TestGetUsers_Success(t *testing.T) {
 	}
 }
 
-func TestGetUsers_ErrorCase(t *testing.T) {
+func TestGetUsers_ErrorCases(t *testing.T) {
 	// Setup mock DB
 	db, mock, err := sqlmock.New()
 	if err != nil {
