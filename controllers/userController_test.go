@@ -172,7 +172,7 @@ func TestGetUser_ErrorCases(t *testing.T) {
 
 	// Expect query with int64 arg
 	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").
-		WithArgs(int64(1)).
+		WithArgs(int64(3)).
 		WillReturnError(fmt.Errorf("database connection error"))
 
 	// Setup Gin router
@@ -181,7 +181,7 @@ func TestGetUser_ErrorCases(t *testing.T) {
 	router.GET("/users/:id", GetUser(db))
 
 	// Create request and record response
-	req, err := http.NewRequest("GET", "/users/1", nil)
+	req, err := http.NewRequest("GET", "/users/3", nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
