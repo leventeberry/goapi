@@ -119,11 +119,11 @@ func TestGetUser_Success(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"user_id", "first_name", "last_name", "email", "password_hash", "phone_number", "role", "created_at", "updated_at",
 	}).AddRow(
-		"1", "John", "Doe", "test@test.com", "hashedpassword", "1234567890", "user", "2021-01-01", "2021-01-01",
+		1, "John", "Doe", "test@test.com", "hashedpassword", "1234567890", "user", "2021-01-01", "2021-01-01",
 	)
 
 	// Expect query with stricter match
-	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").WithArgs("1").WillReturnRows(rows)
+	mock.ExpectQuery("^SELECT \\* FROM users WHERE user_id = \\?$").WithArgs(1).WillReturnRows(rows)
 
 	// Define router and endpoint
 	gin.SetMode(gin.TestMode)
