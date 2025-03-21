@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"fmt"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
@@ -67,6 +68,43 @@ func TestGetUsers_Success(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
+
+func TestGetUsers_ErrorCase(t *testing.T) {
+	// Setup mock DB
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("unexpected error when opening stub database: %s", err)
+	}
+	defer db.Close()
+
+	// Simulate a DB error
+	mock.ExpectQuery("^SELECT \\* FROM users$").
+		WillReturnError(fmt.Errorf("database connection error"))
+
+	// Setup Gin router
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/users", GetUsers(db))
+
+	// Create request and record response
+	req, err := http.NewRequest("GET", "/users", nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Validate response
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+	assert.Contains(t, w.Body.String(), "Failed to fetch users from the database")
+
+	// Ensure mock expectations were met
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unfulfilled expectations: %s", err)
+	}
+}
+
 
 func TestCreateUser_Success(t *testing.T) {
     // Setup: Create a sqlmock database
