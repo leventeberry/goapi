@@ -58,6 +58,37 @@ func GetUsers(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+func GetUser(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get the user ID from the URL
+		userID := c.Param("id")
+
+		// Query the database
+		row := db.QueryRow("SELECT * FROM users WHERE id = ?", userID)
+
+		var user User
+		err := row.Scan(
+			&user.ID,
+			&user.FirstName,
+			&user.LastName,
+			&user.Email,
+			&user.PassHash,
+			&user.PhoneNum,
+			&user.Role,
+			&user.CreatedAt,
+			&user.UpdateAt,
+		)
+		if err != nil {
+			fmt.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to scan the row"})
+			return
+		}
+
+		// Return JSON response
+		c.JSON(http.StatusOK, user)
+	}
+}
+
 func CreateUser(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Parse the request body
