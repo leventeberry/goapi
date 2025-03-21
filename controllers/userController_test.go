@@ -12,6 +12,45 @@ import (
     "github.com/stretchr/testify/assert"
 )
 
+func TestGetUsers_Success(t *testing.T) {
+	// Setup: Create a sqlmock database
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	// Set expected DB behavior for success case
+	rows := sqlmock.NewRows([]string{"user_id", "first_name", "last_name", "email", "password_hash", "phone_number", "role", "created_at", "updated_at"}).
+		AddRow("1", "John", "Doe", "test@test.com", "hashedpassword", "1234567890", "user", "2021-01-01", "2021-01-01")
+	mock.ExpectQuery("SELECT * FROM users").WillReturnRows(rows)
+
+	// Create a Gin engine in test mode
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/users", GetUsers(db))
+
+	// Record the response
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/users", nil)
+	if err != nil {
+		t.Fatalf("Could not create request: %v", err)
+	}
+	router.ServeHTTP(w, req)
+
+	// Assert on the response
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "1")
+	assert.Contains(t, w.Body.String(), "John")
+	assert.Contains(t, w.Body.String(), "Doe")
+	assert.Contains(t, w.Body.String(), "test@test.com")
+	assert.Contains(t, w.Body.String(), "hashedpassword")
+	assert.Contains(t, w.Body.String(), "1234567890")
+	assert.Contains(t, w.Body.String(), "user")
+	assert.Contains(t, w.Body.String(), "2021-01-01")
+	assert.Contains(t, w.Body.String(), "2021-01-01")
+}
+
 func TestCreateUser_Success(t *testing.T) {
     // Setup: Create a sqlmock database
     db, mock, err := sqlmock.New()
