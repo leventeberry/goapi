@@ -92,7 +92,8 @@ func GetUser(db *sql.DB) gin.HandlerFunc {
 func CreateUser(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Parse the request body
-		var user map[string]interface{}
+		var user User
+
 		err := c.BindJSON(&user)
 		if err != nil {
 			fmt.Println(err)
@@ -101,7 +102,7 @@ func CreateUser(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Insert the user into the database
-		_, err = db.Exec("INSERT INTO users (name, email) VALUES (?, ?)", user["name"], user["email"])
+		_, err = db.Exec("INSERT INTO users (first_name, last_name, email, password_hash, phone_number, role) VALUES (?, ?, ?, ?, ?, ?)", &user.FirstName, &user.LastName, &user.Email, &user.PassHash, &user.PhoneNum, &user.Role)
 		if err != nil {
 			fmt.Println(err)
 			c.JSON(500, gin.H{"error": "Failed to insert the user into the database"})
