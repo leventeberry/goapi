@@ -64,7 +64,7 @@ func GetUser(db *sql.DB) gin.HandlerFunc {
 		userID := c.Param("id")
 
 		// Query the database
-		row := db.QueryRow("SELECT * FROM users WHERE id = ?", userID)
+		row := db.QueryRow("SELECT * FROM users WHERE user_id = ?", userID)
 
 		var user User
 		err := row.Scan(
