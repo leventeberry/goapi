@@ -3,35 +3,56 @@ package controllers
 import (
 	"database/sql"
 	"fmt"
-
+	"net/http"
 	"github.com/gin-gonic/gin"
 )
 
+type User struct {
+	ID    int    `json:"user_id"`
+	FirstName string `json:"first_name"`
+	LastName string `json:"last_name"`
+	Email string `json:"email"`
+	PassHash string `json:"password_hash"`
+	PhoneNum string `json:"phone_number"`
+	Role string `json:"role"`
+	CreatedAt string `json:"created_at"`
+}
+
 func GetUsers(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-	// Query the database
-	rows, err := db.Query("SELECT * FROM users")
-	if err != nil {
-		fmt.Println(err)
-		c.JSON(500, gin.H{"error": "Failed to query the database"})
-		return
-	}
-
-	// Iterate over the rows
-	var users []map[string]interface{}
-	for rows.Next() {
-		// Create a new map to store the column name and value
-		user := make(map[string]interface{})
-		// Scan the row into the map
-		err = rows.ScanMap(user)
+		// Query the database
+		rows, err := db.Query("SELECT * FROM users")
 		if err != nil {
 			fmt.Println(err)
-			c.JSON(500, gin.H{"error": "Failed to scan the row"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to query the database"})
 			return
 		}
-		// Append the map to the users slice
-		users = append(users, user)
-	}
+		defer rows.Close()
+
+		var users []User
+
+		for rows.Next() {
+			var user User
+			err := rows.Scan(
+				&user.ID,
+				&user.FirstName,
+				&user.LastName,
+				&user.Email,
+				&user.PassHash,
+				&user.PhoneNum,
+				&user.Role,
+				&user.CreatedAt,
+			)
+			if err != nil {
+				fmt.Println(err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to scan the row"})
+				return
+			}
+			users = append(users, user)
+		}
+
+		// Return JSON response
+		c.JSON(http.StatusOK, users)
 	}
 }
 
