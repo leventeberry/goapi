@@ -20,6 +20,7 @@ func main() {
 
     // Pass handler functions correctly
     router.GET("/users", controllers.GetUsers(db))
+    router.GET("/users/:id", controllers.GetUser(db))
     router.POST("/users", controllers.CreateUser(db))
 
     // Start the server (blocking call)
