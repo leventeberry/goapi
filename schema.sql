@@ -13,4 +13,4 @@ CREATE TABLE users (
 
 INSERT INTO users (first_name, last_name, email, password_hash, role)
 VALUES ('John', 'Doe', 'johndoe@example.com', 'password', 'admin'),
-       ('Jane', 'Doe', 'janedoe@example.com', 'password', 'customer'),
+       ('Jane', 'Doe', 'janedoe@example.com', 'password', 'customer')
