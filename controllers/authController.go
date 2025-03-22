@@ -89,13 +89,11 @@ func SignupUser(db *sql.DB) gin.HandlerFunc {
 		// Check if the user already exists
 		var exists int
 		err := db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", user.Email).Scan(&exists)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check if user exists"})
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email"})
 			return
-		}
-		if exists > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
 

@@ -4,17 +4,16 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"os"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-var jwtSecret = []byte("your-secret-key") // store securely, e.g. in .env or config
-
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 		authHeader := c.GetHeader("Authorization")
-
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing or invalid Authorization header"})
 			return
@@ -23,7 +22,6 @@ func AuthMiddleware() gin.HandlerFunc {
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Validate the alg is what you expect
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, jwt.ErrSignatureInvalid
 			}
@@ -35,25 +33,25 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Optionally set user info in context
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if ok && token.Valid {
-			c.Set("userID", claims["user_id"])
-			c.Set("email", claims["email"])
-			// Add more claims if needed
+			c.Set("user_id", claims["user_id"])
+			c.Set("apiKey", claims["apiKey"])
+			c.Set("exp", claims["exp"])
 		}
 
-		c.Next() // Allow request to continue
+		c.Next()
 	}
 }
 
+
 func CreateToken(userID int) (string, error) {
+	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 	uuid := uuid.New()
-	
-	// Token expires in 1 hour
-	expiresAt := time.Now().Add(time.Hour * 60).Unix()
+	expiresAt := time.Now().Add(time.Hour).Unix() // 1 hour
 
 	claims := jwt.MapClaims{
+		"user_id": userID,
 		"apiKey":  uuid.String(),
 		"exp":     expiresAt,
 	}
