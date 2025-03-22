@@ -3,9 +3,10 @@ package middleware
 import (
 	"net/http"
 	"strings"
-
+	"time"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 var jwtSecret = []byte("your-secret-key") // store securely, e.g. in .env or config
@@ -44,4 +45,19 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		c.Next() // Allow request to continue
 	}
+}
+
+func CreateToken(userID int) (string, error) {
+	uuid := uuid.New()
+	
+	// Token expires in 1 hour
+	expiresAt := time.Now().Add(time.Hour * 60).Unix()
+
+	claims := jwt.MapClaims{
+		"apiKey":  uuid.String(),
+		"exp":     expiresAt,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtSecret)
 }

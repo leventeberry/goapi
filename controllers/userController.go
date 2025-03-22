@@ -75,6 +75,7 @@ func GetUser(db *sql.DB) gin.HandlerFunc {
 		// Query the database
 		row := db.QueryRow("SELECT * FROM users WHERE user_id = ?", id)
 
+		// Scan the row into a User struct
 		var user User
 		err = row.Scan(
 			&user.ID,

@@ -18,6 +18,17 @@ func main() {
     // Create a new router
     router := gin.Default()
 
+    // Home Route
+    router.GET("/", func(c *gin.Context) {
+        c.JSON(200, gin.H{
+            "message": "Welcome to the API",
+            "status": 200,
+        })
+    })
+
+    router.POST("/login", controllers.LoginUser(db))
+    router.POST("/register", controllers.SignupUser(db))
+
     // User Routes
     router.GET("/users", controllers.GetUsers(db))
     router.GET("/users/:id", controllers.GetUser(db))
