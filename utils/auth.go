@@ -10,6 +10,11 @@ import (
 	"github.com/google/uuid"
 )
 
+type RequestTokens struct {
+	ApiKey string
+	JWT_Token string
+}
+
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		jwtSecret := []byte(os.Getenv("JWT_SECRET"))
@@ -35,8 +40,6 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if ok && token.Valid {
-			c.Set("user_id", claims["user_id"])
-			c.Set("apiKey", claims["apiKey"])
 			c.Set("exp", claims["exp"])
 		}
 
@@ -45,17 +48,24 @@ func AuthMiddleware() gin.HandlerFunc {
 }
 
 
-func CreateToken(userID int) (string, error) {
+func CreateToken(userID int) (RequestTokens, error) {
 	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
-	uuid := uuid.New()
-	expiresAt := time.Now().Add(time.Hour).Unix() // 1 hour
+	uuid := uuid.New().String()
+	expiresAt := time.Now().Add(time.Hour * 24 * 60).Unix() // 60 Days
 
 	claims := jwt.MapClaims{
-		"user_id": userID,
-		"apiKey":  uuid.String(),
+		"apiKey":  uuid,
 		"exp":     expiresAt,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	signedToken, err := token.SignedString(jwtSecret)
+	if err != nil {
+		return RequestTokens{}, err
+	}
+
+	return RequestTokens{
+		ApiKey: uuid,
+		JWT_Token: signedToken,
+	}, nil
 }

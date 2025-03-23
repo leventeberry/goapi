@@ -7,7 +7,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
-	github.com/leventeberry/go-mysql v0.0.0-20250320173601-ed180d2e7d49
+	github.com/leventeberry/gomysql v0.0.0-20250322144137-de8bf3fb0313
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.23.0
 )

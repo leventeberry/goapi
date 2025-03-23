@@ -3,7 +3,7 @@ package main
 import(
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/leventeberry/go-mysql"
+	"github.com/leventeberry/gomysql"
 	"github.com/leventeberry/goapi/controllers"
 )
 
