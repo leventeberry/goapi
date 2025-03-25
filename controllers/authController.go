@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/leventeberry/goapi/utils"
+	"github.com/leventeberry/goapi/middleware"
 )
 
 type ExistUser struct {
