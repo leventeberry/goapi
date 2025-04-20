@@ -1,140 +1,119 @@
 package controllers
 
 import (
-	"database/sql"
-	"fmt"
-	"net/http"
-
-	"github.com/gin-gonic/gin"
-	"github.com/leventeberry/goapi/middleware"
+    "net/http"
+    "errors"
+    "github.com/gin-gonic/gin"
+    "gorm.io/gorm"
+    "github.com/leventeberry/goapi/middleware"
 )
 
-type ExistUser struct {
-	ID        int    `json:"id"`
-}
-
+// RequestUser holds login credentials.
 type RequestUser struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+    Email    string `json:"email" binding:"required,email"`
+    Password string `json:"password" binding:"required"`
 }
 
-type RegisterUser struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	PhoneNum  string `json:"phone_number"`
-	Role      string `json:"role"`
+// SignupUserInput holds registration data.
+type SignupUserInput struct {
+    FirstName string `json:"first_name" binding:"required"`
+    LastName  string `json:"last_name" binding:"required"`
+    Email     string `json:"email" binding:"required,email"`
+    Password  string `json:"password" binding:"required,min=8"`
+    PhoneNum  string `json:"phone_number" binding:"required"`
+    Role      string `json:"role" binding:"required"`
 }
 
-func LoginUser(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
+// LoginUser authenticates a user and returns a JWT token.
+func LoginUser(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        var input RequestUser
+        if err := c.ShouldBindJSON(&input); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-		// Bind the request body to the User struct
-		var user RequestUser
-		if err := c.ShouldBindJSON(&user); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-	// Query the database
-		row := db.QueryRow("SELECT * FROM users WHERE email = ?", user.Email)
+        // Load user by email
+        var user User
+        if err := db.Where("email = ?", input.Email).First(&user).Error; err != nil {
+            if errors.Is(err, gorm.ErrRecordNotFound) {
+                c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+            } else {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+            }
+            return
+        }
 
-		// Scan the row into a User struct
-		var dbUser User
-		err := row.Scan(
-			&dbUser.ID,
-			&dbUser.FirstName,
-			&dbUser.LastName,
-			&dbUser.Email,
-			&dbUser.PassHash,
-			&dbUser.PhoneNum,
-			&dbUser.Role,
-			&dbUser.CreatedAt,
-			&dbUser.UpdateAt,
-		)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user from the database"})
-			return
-		}
+        // Check password
+        if !middleware.ComparePasswords(user.PassHash, input.Password) {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+            return
+        }
 
-		// Compare the password with the stored hash
-		if !middleware.ComparePasswords(dbUser.PassHash, user.Password) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid password"})
-			return
-		}
+        // Generate JWT
+        token, err := middleware.CreateToken(user.ID)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})
+            return
+        }
 
-		// Create a new JWT token
-		token, err := middleware.CreateToken(dbUser.ID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})
-			return
-		}
-
-		// Return the token
-		c.JSON(http.StatusOK, gin.H{"token": token})
-
-	}
+        c.JSON(http.StatusOK, gin.H{"token": token})
+    }
 }
 
-func SignupUser(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Bind the request body to the User struct
-		var user RegisterUser
-		if err := c.ShouldBindJSON(&user); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+// SignupUser registers a new user and returns a JWT token.
+func SignupUser(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        var input SignupUserInput
+        if err := c.ShouldBindJSON(&input); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-		// Check if the user already exists
-		var exists int
-		err := db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", user.Email).Scan(&exists)
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email"})
-			return
-		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-			return
-		}
+        // Check if email already exists
+        var existing User
+        if err := db.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+            c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
+            return
+        } else if !errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+            return
+        }
 
+        // Hash password
+        hash, err := middleware.HashPassword(input.Password)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+            return
+        }
 
-		// Hash the password
-		passHash, err := middleware.HashPassword(user.Password)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-			return
-		}
+        // Create user record
+        user := User{
+            FirstName: input.FirstName,
+            LastName:  input.LastName,
+            Email:     input.Email,
+            PassHash:  hash,
+            PhoneNum:  input.PhoneNum,
+            Role:      input.Role,
+        }
+        if err := db.Create(&user).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+            return
+        }
 
-		// Insert the user into the database
-		result, err := db.Exec("INSERT INTO users (email, password_hash, first_name, last_name, phone_number, role) VALUES (?, ?, ?, ?, ?, ?)", user.Email, passHash, user.FirstName, user.LastName, user.PhoneNum, user.Role)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert user into the database"})
-			return
-		}
+        // Generate JWT
+        token, err := middleware.CreateToken(user.ID)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})
+            return
+        }
 
-		// Get the ID of the inserted user
-		userID, err := result.LastInsertId()
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user ID"})
-			return
-		}
-
-		// Create a new JWT token
-		token, err := middleware.CreateToken(int(userID))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})
-			return
-		}
-
-		// Return the token
-		c.JSON(http.StatusOK, gin.H{
-			"token": token,
-			"user": gin.H{
-				"id": userID,
-				"email": user.Email,
-			},
-		})
-	}
+        c.JSON(http.StatusCreated, gin.H{
+            "token": token,
+            "user": gin.H{
+                "id":    user.ID,
+                "email": user.Email,
+            },
+        })
+    }
 }

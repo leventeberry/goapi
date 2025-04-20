@@ -1,12 +1,11 @@
 package controllers
 
 import (
-	"database/sql"
-	"fmt"
 	"net/http"
 	"strconv"
-
+	"errors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type User struct {
@@ -21,163 +20,143 @@ type User struct {
 	UpdateAt string `json:"updated_at"`
 }
 
+func GetUsers(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // 1. Prepare destination slice
+        var users []User
 
-func GetUsers(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Query the database
-		rows, err := db.Query("SELECT * FROM users")
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to query the database"})
-			return
-		}
-		defer rows.Close()
+        // 2. Fetch all users; GORM populates 'users' and returns a *gorm.DB
+        result := db.Find(&users)
+        if result.Error != nil {
+            // 3. Handle error
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users"})
+            return
+        }
 
-		var users []User
-
-		for rows.Next() {
-			var user User
-			err := rows.Scan(
-				&user.ID,
-				&user.FirstName,
-				&user.LastName,
-				&user.Email,
-				&user.PassHash,
-				&user.PhoneNum,
-				&user.Role,
-				&user.CreatedAt,
-				&user.UpdateAt,
-			)
-			if err != nil {
-				fmt.Println(err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to scan the row"})
-				return
-			}
-			users = append(users, user)
-		}
-
-		// Return JSON response
-		c.JSON(http.StatusOK, users)
-	}
+        // 4. Return the users slice as JSON
+        c.JSON(http.StatusOK, users)
+    }
 }
 
-func GetUser(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Get the user ID from the URL
-		userID := c.Param("id")
-		id, err := strconv.ParseInt(userID, 10, 64)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-			return
-		}
+func GetUser(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // 1. Parse & validate the ID
+        idParam := c.Param("id")
+        id, err := strconv.ParseUint(idParam, 10, 64)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+            return
+        }
 
-		// Query the database
-		row := db.QueryRow("SELECT * FROM users WHERE user_id = ?", id)
+        // 2. Attempt to load the user
+        var user User
+        res := db.First(&user, id)
+        if res.Error != nil {
+            if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+                c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+            } else {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+            }
+            return
+        }
 
-		// Scan the row into a User struct
-		var user User
-		err = row.Scan(
-			&user.ID,
-			&user.FirstName,
-			&user.LastName,
-			&user.Email,
-			&user.PassHash,
-			&user.PhoneNum,
-			&user.Role,
-			&user.CreatedAt,
-			&user.UpdateAt,
-		)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user from the database"})
-			return
-		}
-
-		// Return JSON response
-		c.JSON(http.StatusOK, user)
-	}
+        // 3. Return the user
+        c.JSON(http.StatusOK, user)
+    }
 }
 
-func CreateUser(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Parse the request body
-		var user User
+func CreateUser(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // 1. Bind incoming JSON into a User struct
+        var user User
+        if err := c.ShouldBindJSON(&user); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+            return
+        }
 
-		err := c.BindJSON(&user)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(400, gin.H{"error": "Failed to parse the request body"})
-			return
-		}
+        // 2. Let GORM insert the new record
+        result := db.Create(&user)
+        if result.Error != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+            return
+        }
 
-		// Insert the user into the database
-		_, err = db.Exec("INSERT INTO users (first_name, last_name, email, password_hash, phone_number, role) VALUES (?, ?, ?, ?, ?, ?)", &user.FirstName, &user.LastName, &user.Email, &user.PassHash, &user.PhoneNum, &user.Role)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(500, gin.H{"error": "Failed to insert the user into the database"})
-			return
-		}
-
-		// Return a success response
-		c.JSON(200, gin.H{"message": "User created successfully"})
-	}
+        // 3. Return the created user (with its new ID) and 201 status
+        c.JSON(http.StatusCreated, user)
+    }
 }
 
-func UpdateUser(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Get the user ID from the URL
-		userID := c.Param("id")
-		id, err := strconv.ParseInt(userID, 10, 64)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-			return
-		}
+func UpdateUser(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // 1. Parse & validate the ID
+        idParam := c.Param("id")
+        id, err := strconv.ParseUint(idParam, 10, 64)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+            return
+        }
 
-		// Parse the request body
-		var user User
+        // 2. Bind incoming JSON into a temporary user
+        var input User
+        if err := c.ShouldBindJSON(&input); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+            return
+        }
 
-		err = c.BindJSON(&user)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(400, gin.H{"error": "Failed to parse the request body"})
-			return
-		}
+        // 3. Load existing record
+        var user User
+        if err := db.First(&user, id).Error; err != nil {
+            if errors.Is(err, gorm.ErrRecordNotFound) {
+                c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+            } else {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+            }
+            return
+        }
 
-		// Update the user in the database
-		_, err = db.Exec("UPDATE users SET first_name = ?, last_name = ?, email = ?, password_hash = ?, phone_number = ?, role = ? WHERE user_id = ?", &user.FirstName, &user.LastName, &user.Email, &user.PassHash, &user.PhoneNum, &user.Role, id)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(500, gin.H{"error": "Failed to update the user in the database"})
-			return
-		}
+        // 4. Copy over fields to be updated
+        user.FirstName = input.FirstName
+        user.LastName  = input.LastName
+        user.Email     = input.Email
+        user.PassHash  = input.PassHash
+        user.PhoneNum  = input.PhoneNum
+        user.Role      = input.Role
 
-		// Return a success response
-		c.JSON(200, gin.H{"message": "User updated successfully"})
-	}
+        // 5. Save updates
+        if err := db.Save(&user).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+            return
+        }
+
+        // 6. Return the updated user
+        c.JSON(http.StatusOK, user)
+    }
 }
 
-func DeleteUser(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Get the user ID from the URL
-		userID := c.Param("id")
-		id, err := strconv.ParseInt(userID, 10, 64)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-			return
-		}
+func DeleteUser(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // 1. Parse & validate the ID
+        idParam := c.Param("id")
+        id, err := strconv.ParseUint(idParam, 10, 64)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+            return
+        }
 
-		// Delete the user from the database
-		_, err = db.Exec("DELETE FROM users WHERE user_id = ?", id)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(500, gin.H{"error": "Failed to delete the user from the database"})
-			return
-		}
+        // 2. Perform the delete
+        result := db.Delete(&User{}, id)
+        if result.Error != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+            return
+        }
 
-		// Return a success response
-		c.JSON(200, gin.H{"message": "User deleted successfully"})
-	}
+        // 3. Handle not-found
+        if result.RowsAffected == 0 {
+            c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+            return
+        }
+
+        // 4. Success
+        c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+    }
 }
