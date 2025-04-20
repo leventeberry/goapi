@@ -8,8 +8,6 @@ import (
 	"gorm.io/gorm"
     "github.com/leventeberry/goapi/models"
 )
-
-var UserModel *models.User;
   
 func GetUsers(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {

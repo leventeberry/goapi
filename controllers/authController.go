@@ -26,6 +26,18 @@ type SignupUserInput struct {
     Role      string `json:"role" binding:"required"` 
 }
 
+// Function that returns data upon successful query
+func ReturnSuccessData(c *gin.Context, user *models.User, token *middleware.Authentication) {
+    c.JSON(http.StatusOK, gin.H{
+        "token": token,
+        "user": gin.H{
+            "id":    user.ID,
+            "email": user.Email,
+        },
+    })
+
+}
+
 // LoginUser authenticates a user and returns a JWT token.
 func LoginUser(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
@@ -59,7 +71,7 @@ func LoginUser(db *gorm.DB) gin.HandlerFunc {
             return
         }
 
-        c.JSON(http.StatusOK, gin.H{"token": token})
+        ReturnSuccessData(c, &user, token)
     }
 }
 
@@ -110,12 +122,6 @@ func SignupUser(db *gorm.DB) gin.HandlerFunc {
             return
         }
 
-        c.JSON(http.StatusCreated, gin.H{
-            "token": token,
-            "user": gin.H{
-                "id":    user.ID,
-                "email": user.Email,
-            },
-        })
+        ReturnSuccessData(c, &user, token)
     }
 }
