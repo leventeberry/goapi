@@ -1,49 +1,30 @@
 package main
 
-import(
-	"fmt"
+import (
+    "log"
     "os"
-	"github.com/gin-gonic/gin"
+
+    "github.com/gin-gonic/gin"
     "github.com/leventeberry/goapi/initializers"
-	"github.com/leventeberry/gomysql"
-	"github.com/leventeberry/goapi/controllers"
+    "github.com/leventeberry/goapi/routes"
 )
 
-func init() {
-    initializer.LoadEnvVariables()
-    initializer.ConnectDatabase()
-}
-
 func main() {
-    // Create a connection pool to the database
-    db, err := gomysql.ConnectDB("tcp", "localhost:3306", "testapi")
-    if err != nil {
-        fmt.Println("Database connection error:", err)
-        return
-    }
+    // Initialize environment variables, database connection, and run migrations
+    initializers.Init()
 
-    // Create a new router
+    // Create a Gin router with default middleware (logger and recovery)
     router := gin.Default()
 
-    // Home Route
-    router.GET("/", func(c *gin.Context) {
-        c.JSON(200, gin.H{
-            "message": "Welcome to the API",
-            "status": 200,
-        })
-    })
+    // Register all routes
+    routes.SetupRoutes(router, initializers.DB)
 
-    router.POST("/login", controllers.LoginUser(db))
-    router.POST("/register", controllers.SignupUser(db))
-
-    // User Routes
-    router.GET("/users", controllers.GetUsers(db))
-    router.GET("/users/:id", controllers.GetUser(db))
-    router.POST("/users", controllers.CreateUser(db))
-    router.PUT("/users/:id", controllers.UpdateUser(db))
-    router.DELETE("/users/:id", controllers.DeleteUser(db))
-
-    // Start the server (blocking call)
-    router.Run(os.Getenv("PORT"))
+    // Start server on specified PORT or default to 8080
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+    if err := router.Run(":" + port); err != nil {
+        log.Fatalf("failed to start server: %v", err)
+    }
 }
-
