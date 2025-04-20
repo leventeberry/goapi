@@ -23,7 +23,7 @@ type Claims struct {
 }
 
 // TokenDetails holds the generated API key and JWT token.
-type TokenDetails struct {
+type Authentication struct {
     ApiKey   string `json:"api_key"`
     JWTToken string `json:"jwt_token"`
 }
@@ -67,7 +67,7 @@ func AuthMiddleware() gin.HandlerFunc {
 }
 
 // CreateToken generates a new JWT token (and API key) for the given user ID.
-func CreateToken(userID int) (*TokenDetails, error) {
+func CreateToken(userID int) (*Authentication, error) {
     jwtSecret := []byte(os.Getenv("JWT_SECRET"))
     apiKey := uuid.NewString()
     expiresAt := time.Now().Add(time.Hour * 24 * TokenExpirationDays)
@@ -87,7 +87,7 @@ func CreateToken(userID int) (*TokenDetails, error) {
         return nil, err
     }
 
-    return &TokenDetails{
+    return &Authentication{
         ApiKey:   apiKey,
         JWTToken: signedToken,
     }, nil
