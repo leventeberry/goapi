@@ -10,12 +10,12 @@ import (
 
 type User struct {
 	ID    int    `json:"user_id"`
-	FirstName string `json:"first_name"`
-	LastName string `json:"last_name"`
-	Email string `json:"email"`
-	PassHash string `json:"password_hash"`
-	PhoneNum string `json:"phone_number"`
-	Role string `json:"role"`
+	FirstName string `json:"first_name" binding:"required"`
+	LastName string `json:"last_name" binding:"required"`
+	Email string `json:"email" binding:"required"`
+	PassHash string `json:"password_hash" binding:"required"`
+	PhoneNum string `json:"phone_number" binding:"required"`
+	Role string `json:"role" binding:"required"`
 	CreatedAt string `json:"created_at"`
 	UpdateAt string `json:"updated_at"`
 }
