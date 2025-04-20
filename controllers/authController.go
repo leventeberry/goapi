@@ -35,6 +35,7 @@ func ReturnSuccessData(c *gin.Context, user *models.User, token *middleware.Auth
             "email": user.Email,
         },
     })
+
 }
 
 // LoginUser authenticates a user and returns a JWT token.
