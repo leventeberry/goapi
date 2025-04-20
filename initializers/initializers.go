@@ -7,7 +7,7 @@ import (
     "github.com/joho/godotenv"
     "gorm.io/driver/mysql"
     "gorm.io/gorm"
-    "github.com/leventeberry/goapi/controllers"
+    "github.com/leventeberry/goapi/models"
 )
 
 // DB is the global database connection
@@ -46,7 +46,7 @@ func connectDB() {
 // migrateDB runs AutoMigrate on all models
 func migrateDB() {
     if err := DB.AutoMigrate(
-        &controllers.User{},
+        &models.User{},
         // add future models here, e.g. &controllers.Profile{}, &controllers.Order{},
     ); err != nil {
         log.Fatalf("failed to run database migrations: %v", err)
