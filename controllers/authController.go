@@ -21,7 +21,7 @@ type SignupUserInput struct {
     Email     string `json:"email" binding:"required,email"`
     Password  string `json:"password" binding:"required,min=8"`
     PhoneNum  string `json:"phone_number" binding:"required"`
-    Role      string `json:"role" binding:"required"`
+    Role      string `json:"role" binding:"required"` 
 }
 
 // LoginUser authenticates a user and returns a JWT token.
