@@ -1,15 +1,17 @@
 package controllers
 
 import (
-    "net/http"
-    "errors"
-    "github.com/gin-gonic/gin"
-    "gorm.io/gorm"
-    "github.com/leventeberry/goapi/middleware"
+	"errors"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/leventeberry/goapi/middleware"
+	"github.com/leventeberry/goapi/models"
+	"gorm.io/gorm"
 )
 
 // RequestUser holds login credentials.
-type RequestUser struct {
+type RequestUserInput struct {
     Email    string `json:"email" binding:"required,email"`
     Password string `json:"password" binding:"required"`
 }
@@ -21,20 +23,20 @@ type SignupUserInput struct {
     Email     string `json:"email" binding:"required,email"`
     Password  string `json:"password" binding:"required,min=8"`
     PhoneNum  string `json:"phone_number" binding:"required"`
-    Role      string `json:"role" binding:"required"`
+    Role      string `json:"role" binding:"required"` 
 }
 
 // LoginUser authenticates a user and returns a JWT token.
 func LoginUser(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
-        var input RequestUser
+        var input RequestUserInput
         if err := c.ShouldBindJSON(&input); err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return
         }
 
         // Load user by email
-        var user User
+        var user models.User
         if err := db.Where("email = ?", input.Email).First(&user).Error; err != nil {
             if errors.Is(err, gorm.ErrRecordNotFound) {
                 c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
@@ -71,7 +73,7 @@ func SignupUser(db *gorm.DB) gin.HandlerFunc {
         }
 
         // Check if email already exists
-        var existing User
+        var existing models.User
         if err := db.Where("email = ?", input.Email).First(&existing).Error; err == nil {
             c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
             return
@@ -88,7 +90,7 @@ func SignupUser(db *gorm.DB) gin.HandlerFunc {
         }
 
         // Create user record
-        user := User{
+        user := models.User{
             FirstName: input.FirstName,
             LastName:  input.LastName,
             Email:     input.Email,
