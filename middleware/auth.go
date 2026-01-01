@@ -2,20 +2,21 @@ package middleware
 
 import (
     "net/http"
-    "os"
     "strconv"
     "strings"
     "time"
     "github.com/gin-gonic/gin"
     "github.com/golang-jwt/jwt/v5"
     "github.com/google/uuid"
+    "github.com/leventeberry/goapi/config"
     "github.com/leventeberry/goapi/repositories"
 )
 
-const (
-    // TokenExpirationDays defines how many days the JWT is valid for.
-    TokenExpirationDays = 60
-)
+// getTokenExpirationDays returns the JWT token expiration days from configuration
+func getTokenExpirationDays() int {
+	cfg := config.Get()
+	return cfg.JWT.ExpirationDays
+}
 
 // Claims defines the JWT payload structure.
 type Claims struct {
@@ -39,7 +40,8 @@ func AuthMiddleware() gin.HandlerFunc {
         }
 
         tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-        jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+        cfg := config.Get()
+        jwtSecret := []byte(cfg.JWT.Secret)
 
         token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
             if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -69,9 +71,10 @@ func AuthMiddleware() gin.HandlerFunc {
 
 // CreateToken generates a new JWT token (and API key) for the given user ID.
 func CreateToken(userID int) (*Authentication, error) {
-    jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+    cfg := config.Get()
+    jwtSecret := []byte(cfg.JWT.Secret)
     apiKey := uuid.NewString()
-    expiresAt := time.Now().Add(time.Hour * 24 * TokenExpirationDays)
+    expiresAt := time.Now().Add(time.Hour * 24 * time.Duration(getTokenExpirationDays()))
 
     claims := Claims{
         ApiKey: apiKey,

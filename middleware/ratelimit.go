@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/leventeberry/goapi/cache"
+	"github.com/leventeberry/goapi/config"
 )
 
 // RateLimiterConfig holds configuration for rate limiting
@@ -127,10 +128,11 @@ func RateLimitMiddleware() gin.HandlerFunc {
 func RateLimitMiddlewareWithCache(cacheClient cache.Cache) gin.HandlerFunc {
 	// Initialize rate limiter once (singleton pattern)
 	rateLimiterOnce.Do(func() {
-		// Default configuration: 60 requests per minute, burst of 10
-		config := RateLimiterConfig{
-			RequestsPerMinute: 60,
-			BurstSize:         10,
+		// Load configuration from centralized config
+		cfg := config.Get()
+		rateLimitConfig := RateLimiterConfig{
+			RequestsPerMinute: cfg.RateLimit.RequestsPerMinute,
+			BurstSize:         cfg.RateLimit.BurstSize,
 		}
 
 		// Check if we should use Redis
@@ -142,31 +144,31 @@ func RateLimitMiddlewareWithCache(cacheClient cache.Cache) gin.HandlerFunc {
 			testKey := "ratelimit:init:test"
 			testValue := "test"
 			
-			// Try to set and get - if this works, we have a real cache
-			err := cacheClient.Set(ctx, testKey, testValue, time.Second)
-			if err == nil {
-				val, err := cacheClient.Get(ctx, testKey)
-				if err == nil && val == testValue {
-					// Cache is working (Redis is available), use Redis rate limiter
-					globalRedisRateLimiter = NewRedisRateLimiter(cacheClient, config)
-					useRedis = true
-					// Clean up test key
-					cacheClient.Delete(ctx, testKey)
+				// Try to set and get - if this works, we have a real cache
+				err := cacheClient.Set(ctx, testKey, testValue, time.Second)
+				if err == nil {
+					val, err := cacheClient.Get(ctx, testKey)
+					if err == nil && val == testValue {
+						// Cache is working (Redis is available), use Redis rate limiter
+						globalRedisRateLimiter = NewRedisRateLimiter(cacheClient, rateLimitConfig)
+						useRedis = true
+						// Clean up test key
+						cacheClient.Delete(ctx, testKey)
+					} else {
+						// Cache not working (no-op cache), use in-memory
+						globalRateLimiter = NewRateLimiter(rateLimitConfig)
+						useRedis = false
+					}
 				} else {
-					// Cache not working (no-op cache), use in-memory
-					globalRateLimiter = NewRateLimiter(config)
+					// Cache not working, use in-memory
+					globalRateLimiter = NewRateLimiter(rateLimitConfig)
 					useRedis = false
 				}
 			} else {
-				// Cache not working, use in-memory
-				globalRateLimiter = NewRateLimiter(config)
+				// No cache provided, use in-memory
+				globalRateLimiter = NewRateLimiter(rateLimitConfig)
 				useRedis = false
 			}
-		} else {
-			// No cache provided, use in-memory
-			globalRateLimiter = NewRateLimiter(config)
-			useRedis = false
-		}
 	})
 
 	return func(c *gin.Context) {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/leventeberry/goapi/cache"
+	"github.com/leventeberry/goapi/config"
 	"github.com/leventeberry/goapi/logger"
 	"github.com/leventeberry/goapi/models"
 	"github.com/redis/go-redis/v9"
@@ -24,6 +25,8 @@ var RedisClient *redis.Client
 func Init() {
 	loadEnv()
 	validateEnv()
+	// Load centralized configuration (must be after loadEnv)
+	config.Load()
 	connectDB()
 	migrateDB()
 	connectRedis()
