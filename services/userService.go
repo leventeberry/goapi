@@ -3,9 +3,9 @@ package services
 import (
 	"context"
 	"errors"
-	"log"
 
 	"github.com/leventeberry/goapi/cache"
+	"github.com/leventeberry/goapi/logger"
 	"github.com/leventeberry/goapi/middleware"
 	"github.com/leventeberry/goapi/models"
 	"github.com/leventeberry/goapi/repositories"
@@ -71,10 +71,10 @@ func (s *userService) CreateUser(ctx context.Context, input *CreateUserInput) (*
 
 	// Store in cache after successful creation
 	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache user by ID %d: %v", user.ID, err)
+		logger.Log.Warn().Err(err).Int("user_id", user.ID).Msg("Failed to cache user by ID")
 	}
 	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache user by email %s: %v", user.Email, err)
+		logger.Log.Warn().Err(err).Str("email", user.Email).Msg("Failed to cache user by email")
 	}
 
 	return user, nil
@@ -94,7 +94,7 @@ func (s *userService) GetUserByID(ctx context.Context, id int) (*models.User, er
 
 	// Cache miss or error - fallback to database
 	if !errors.Is(err, cache.ErrCacheMiss) {
-		log.Printf("WARN: Cache error when fetching user by ID %d: %v", id, err)
+		logger.Log.Warn().Err(err).Int("user_id", id).Msg("Cache error when fetching user by ID")
 	}
 
 	user, err = s.userRepo.FindByID(id)
@@ -107,10 +107,10 @@ func (s *userService) GetUserByID(ctx context.Context, id int) (*models.User, er
 
 	// Store in cache for future requests (best effort - don't fail on cache error)
 	if err := s.cache.SetUserByID(ctx, id, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache user by ID %d: %v", id, err)
+		logger.Log.Warn().Err(err).Int("user_id", id).Msg("Failed to cache user by ID")
 	}
 	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache user by email %s: %v", user.Email, err)
+		logger.Log.Warn().Err(err).Str("email", user.Email).Msg("Failed to cache user by email")
 	}
 
 	return user, nil
@@ -130,7 +130,7 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*models
 
 	// Cache miss or error - fallback to database
 	if !errors.Is(err, cache.ErrCacheMiss) {
-		log.Printf("WARN: Cache error when fetching user by email %s: %v", email, err)
+		logger.Log.Warn().Err(err).Str("email", email).Msg("Cache error when fetching user by email")
 	}
 
 	user, err = s.userRepo.FindByEmail(email)
@@ -143,10 +143,10 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*models
 
 	// Store in cache for future requests (best effort - don't fail on cache error)
 	if err := s.cache.SetUserByEmail(ctx, email, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache user by email %s: %v", email, err)
+		logger.Log.Warn().Err(err).Str("email", email).Msg("Failed to cache user by email")
 	}
 	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache user by ID %d: %v", user.ID, err)
+		logger.Log.Warn().Err(err).Int("user_id", user.ID).Msg("Failed to cache user by ID")
 	}
 
 	return user, nil
@@ -236,10 +236,10 @@ func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserI
 
 	// Store updated user in cache for future requests
 	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache updated user by ID %d: %v", user.ID, err)
+		logger.Log.Warn().Err(err).Int("user_id", user.ID).Msg("Failed to cache updated user by ID")
 	}
 	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
-		log.Printf("WARN: Failed to cache updated user by email %s: %v", user.Email, err)
+		logger.Log.Warn().Err(err).Str("email", user.Email).Msg("Failed to cache updated user by email")
 	}
 
 	return user, nil

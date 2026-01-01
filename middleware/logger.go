@@ -1,11 +1,10 @@
 package middleware
 
 import (
-	"fmt"
-	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/leventeberry/goapi/logger"
 )
 
 // RequestLogger returns a middleware that logs HTTP requests with details.
@@ -35,30 +34,31 @@ func RequestLogger() gin.HandlerFunc {
 		// Get method
 		method := c.Request.Method
 
-		// Build log message
+		// Build full path with query string if present
+		fullPath := path
 		if raw != "" {
-			path = path + "?" + raw
+			fullPath = path + "?" + raw
 		}
 
-		logMessage := fmt.Sprintf(
-			"[%s] %s %s %d %v %s %s",
-			method,
-			path,
-			c.Request.Proto,
-			statusCode,
-			latency,
-			clientIP,
-			userAgent,
-		)
+		// Create structured log event with common fields
+		baseEvent := logger.Log.
+			With().
+			Str("method", method).
+			Str("path", fullPath).
+			Str("proto", c.Request.Proto).
+			Int("status_code", statusCode).
+			Dur("latency", latency).
+			Str("client_ip", clientIP).
+			Str("user_agent", userAgent).
+			Logger()
 
-		// Log based on status code
+		// Log based on status code with appropriate level
 		if statusCode >= 500 {
-			log.Printf("ERROR: %s", logMessage)
+			baseEvent.Error().Msg("HTTP Request")
 		} else if statusCode >= 400 {
-			log.Printf("WARN: %s", logMessage)
+			baseEvent.Warn().Msg("HTTP Request")
 		} else {
-			log.Printf("INFO: %s", logMessage)
+			baseEvent.Info().Msg("HTTP Request")
 		}
 	}
 }
-

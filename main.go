@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,6 +9,7 @@ import (
 	"github.com/leventeberry/goapi/container"
 	"github.com/leventeberry/goapi/docs"
 	"github.com/leventeberry/goapi/initializers"
+	"github.com/leventeberry/goapi/logger"
 	"github.com/leventeberry/goapi/middleware"
 	"github.com/leventeberry/goapi/routes"
 	swaggerFiles "github.com/swaggo/files"
@@ -82,18 +82,18 @@ func main() {
 	// Start server in a goroutine
 	go func() {
 		if err := router.Run(":" + port); err != nil {
-			log.Fatalf("failed to start server: %v", err)
+			logger.Log.Fatal().Err(err).Msg("Failed to start server")
 		}
 	}()
 
-	log.Printf("Server is running on port %s", port)
+	logger.Log.Info().Str("port", port).Msg("Server is running")
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	<-quit
-	log.Println("Shutting down server...")
+	logger.Log.Info().Msg("Shutting down server...")
 
 	// Cleanup: close Redis connection if it exists
 	initializers.CloseRedis()
 
-	log.Println("Server exited")
+	logger.Log.Info().Msg("Server exited")
 }
