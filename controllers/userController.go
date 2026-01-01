@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
     "github.com/leventeberry/goapi/models"
+	"github.com/leventeberry/goapi/middleware"
 )
   
 func GetUsers(db *gorm.DB) gin.HandlerFunc {
@@ -54,25 +55,75 @@ func GetUser(db *gorm.DB) gin.HandlerFunc {
     }
 }
 
+// CreateUserInput holds the data for creating a new user.
+type CreateUserInput struct {
+    FirstName string `json:"first_name" binding:"required"`
+    LastName  string `json:"last_name" binding:"required"`
+    Email     string `json:"email" binding:"required,email"`
+    Password  string `json:"password" binding:"required,min=8"`
+    PhoneNum  string `json:"phone_number"`
+    Role      string `json:"role"`
+}
+
 func CreateUser(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
-        // 1. Bind incoming JSON into a User struct
-        var user models.User
-        if err := c.ShouldBindJSON(&user); err != nil {
+        // 1. Bind incoming JSON into input struct
+        var input CreateUserInput
+        if err := c.ShouldBindJSON(&input); err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
             return
         }
 
-        // 2. Let GORM insert the new record
-        result := db.Create(&user)
-        if result.Error != nil {
+        // 2. Check if email already exists
+        var existing models.User
+        if err := db.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+            c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
+            return
+        } else if !errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+            return
+        }
+
+        // 3. Hash password
+        hash, err := middleware.HashPassword(input.Password)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+            return
+        }
+
+        // 4. Set default role if not provided
+        role := input.Role
+        if role == "" {
+            role = "customer"
+        }
+
+        // 5. Create user record
+        user := models.User{
+            FirstName: input.FirstName,
+            LastName:  input.LastName,
+            Email:     input.Email,
+            PassHash:  hash,
+            PhoneNum:  input.PhoneNum,
+            Role:      role,
+        }
+        if err := db.Create(&user).Error; err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
             return
         }
 
-        // 3. Return the created user (with its new ID) and 201 status
+        // 6. Return the created user (with its new ID) and 201 status
         c.JSON(http.StatusCreated, user)
     }
+}
+
+// UpdateUserInput holds the data for updating a user.
+type UpdateUserInput struct {
+    FirstName string `json:"first_name"`
+    LastName  string `json:"last_name"`
+    Email     string `json:"email" binding:"omitempty,email"`
+    Password  string `json:"password" binding:"omitempty,min=8"`
+    PhoneNum  string `json:"phone_number"`
+    Role      string `json:"role"`
 }
 
 func UpdateUser(db *gorm.DB) gin.HandlerFunc {
@@ -85,8 +136,8 @@ func UpdateUser(db *gorm.DB) gin.HandlerFunc {
             return
         }
 
-        // 2. Bind incoming JSON into a temporary user
-        var input models.User
+        // 2. Bind incoming JSON into input struct
+        var input UpdateUserInput
         if err := c.ShouldBindJSON(&input); err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
             return
@@ -103,21 +154,50 @@ func UpdateUser(db *gorm.DB) gin.HandlerFunc {
             return
         }
 
-        // 4. Copy over fields to be updated
-        user.FirstName = input.FirstName
-        user.LastName  = input.LastName
-        user.Email     = input.Email
-        user.PassHash  = input.PassHash
-        user.PhoneNum  = input.PhoneNum
-        user.Role      = input.Role
+        // 4. Check email uniqueness if email is being updated
+        if input.Email != "" && input.Email != user.Email {
+            var existing models.User
+            if err := db.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+                c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
+                return
+            } else if !errors.Is(err, gorm.ErrRecordNotFound) {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+                return
+            }
+            user.Email = input.Email
+        }
 
-        // 5. Save updates
+        // 5. Update fields if provided
+        if input.FirstName != "" {
+            user.FirstName = input.FirstName
+        }
+        if input.LastName != "" {
+            user.LastName = input.LastName
+        }
+        if input.PhoneNum != "" {
+            user.PhoneNum = input.PhoneNum
+        }
+        if input.Role != "" {
+            user.Role = input.Role
+        }
+
+        // 6. Hash and update password if provided
+        if input.Password != "" {
+            hash, err := middleware.HashPassword(input.Password)
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+                return
+            }
+            user.PassHash = hash
+        }
+
+        // 7. Save updates
         if err := db.Save(&user).Error; err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
             return
         }
 
-        // 6. Return the updated user
+        // 8. Return the updated user
         c.JSON(http.StatusOK, user)
     }
 }
