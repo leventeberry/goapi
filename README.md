@@ -12,6 +12,7 @@ A RESTful API built with Go (Golang) using the Gin web framework. This API provi
 - 📝 **Request Logging** - Comprehensive HTTP request logging with status codes
 - 🗄️ **Database Migrations** - Automatic database schema migration using GORM
 - 🏥 **Health Check** - Root endpoint for API status verification
+- 📚 **Swagger/OpenAPI Documentation** - Interactive API documentation with Swagger UI
 
 ## Tech Stack
 
@@ -22,6 +23,7 @@ A RESTful API built with Go (Golang) using the Gin web framework. This API provi
 - **JWT (golang-jwt/jwt/v5)** - JSON Web Token implementation
 - **Bcrypt (golang.org/x/crypto)** - Password hashing
 - **godotenv** - Environment variable management
+- **Swagger/OpenAPI (swaggo)** - API documentation and interactive UI
 
 ## Project Structure
 
@@ -42,6 +44,10 @@ goapi/
 │   └── userRoutes.go       # User-specific routes
 ├── initializers/        # Application initialization
 │   └── initializers.go     # Database connection and migration
+├── docs/                # Swagger/OpenAPI documentation
+│   ├── docs.go             # Generated Swagger docs
+│   ├── swagger.json        # OpenAPI JSON specification
+│   └── swagger.yaml        # OpenAPI YAML specification
 ├── schema.sql          # Database schema reference
 ├── main.go             # Application entry point
 ├── go.mod              # Go module dependencies
@@ -94,6 +100,40 @@ goapi/
    ```
 
    The server will start on `http://localhost:8080` (or the port specified in `PORT` environment variable).
+
+6. **Generate Swagger documentation** (if you modify API endpoints)
+   ```bash
+   # Install swag CLI tool
+   go install github.com/swaggo/swag/cmd/swag@latest
+   
+   # Generate Swagger docs from annotations
+   swag init
+   ```
+
+## API Documentation
+
+### Swagger UI
+
+The API includes interactive Swagger/OpenAPI documentation accessible at:
+
+**http://localhost:8080/swagger/index.html**
+
+The Swagger UI provides:
+- Interactive API testing interface
+- Complete endpoint documentation
+- Request/response examples
+- Authentication testing with JWT tokens
+- Schema definitions for all models
+
+### Generating Swagger Documentation
+
+After modifying API endpoints or adding new ones, regenerate the Swagger documentation:
+
+```bash
+swag init
+```
+
+This command scans your code for Swagger annotations (comments starting with `@Summary`, `@Description`, `@Tags`, etc.) and generates the documentation files in the `docs/` directory.
 
 ## API Endpoints
 
@@ -335,6 +375,32 @@ go run main.go
 ```bash
 go build -o goapi main.go
 ./goapi
+```
+
+### Generating Swagger Documentation
+
+When you add or modify API endpoints, update the Swagger annotations in your controller functions and regenerate the docs:
+
+```bash
+# Install swag CLI (if not already installed)
+go install github.com/swaggo/swag/cmd/swag@latest
+
+# Generate Swagger documentation
+swag init
+```
+
+The Swagger annotations use the following format:
+```go
+// @Summary      Brief summary of the endpoint
+// @Description  Detailed description
+// @Tags         tag-name
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "Parameter description"
+// @Success      200  {object}  models.User
+// @Failure      400  {object}  map[string]string
+// @Router       /users/{id} [get]
 ```
 
 ## License
