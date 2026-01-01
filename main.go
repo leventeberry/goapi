@@ -6,6 +6,7 @@ import (
 
     "github.com/gin-gonic/gin"
     "github.com/leventeberry/goapi/initializers"
+    "github.com/leventeberry/goapi/middleware"
     "github.com/leventeberry/goapi/routes"
 )
 
@@ -13,8 +14,12 @@ func main() {
     // Initialize environment variables, database connection, and run migrations
     initializers.Init()
 
-    // Create a Gin router with default middleware (logger and recovery)
-    router := gin.Default()
+    // Create a Gin router
+    router := gin.New()
+
+    // Add middleware: custom request logger and recovery
+    router.Use(middleware.RequestLogger())
+    router.Use(gin.Recovery())
 
     // Register all routes
     routes.SetupRoutes(router, initializers.DB)
