@@ -98,6 +98,10 @@ docker-logs-db: ## View database container logs only
 	@echo "$(GREEN)Viewing database logs...$(NC)"
 	$(DOCKER_COMPOSE) logs -f db
 
+docker-logs-redis: ## View Redis container logs only
+	@echo "$(GREEN)Viewing Redis logs...$(NC)"
+	$(DOCKER_COMPOSE) logs -f redis
+
 docker-restart: ## Restart Docker containers
 	@echo "$(GREEN)Restarting Docker containers...$(NC)"
 	$(DOCKER_COMPOSE) restart
@@ -119,6 +123,10 @@ docker-shell-api: ## Open shell in API container
 docker-shell-db: ## Open PostgreSQL shell in database container
 	@echo "$(GREEN)Opening PostgreSQL shell...$(NC)"
 	$(DOCKER_COMPOSE) exec db psql -U goapi_user -d goapi
+
+docker-shell-redis: ## Open Redis CLI in Redis container
+	@echo "$(GREEN)Opening Redis CLI...$(NC)"
+	$(DOCKER_COMPOSE) exec redis redis-cli
 
 # Database Commands
 db-migrate: ## Run database migrations (local)

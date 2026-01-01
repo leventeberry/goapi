@@ -22,6 +22,25 @@ services:
     networks:
       - goapi_network
 
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: goapi_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - goapi_network
+
   # Go API Application
   api:
     build:
@@ -39,14 +58,23 @@ services:
       DB_NAME: goapi
       JWT_SECRET: ${JWT_SECRET:-change_this_to_a_secure_random_string_in_production}
       PORT: 8080
+      # Redis configuration
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - goapi_network
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
     driver: local
 
 networks:
