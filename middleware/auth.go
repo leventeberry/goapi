@@ -9,8 +9,7 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/golang-jwt/jwt/v5"
     "github.com/google/uuid"
-    "github.com/leventeberry/goapi/initializers"
-    "github.com/leventeberry/goapi/models"
+    "github.com/leventeberry/goapi/repositories"
 )
 
 const (
@@ -97,7 +96,8 @@ func CreateToken(userID int) (*Authentication, error) {
 
 // RequireRole returns a middleware that checks if the authenticated user has one of the required roles.
 // This middleware must be used after AuthMiddleware, as it relies on userID being set in the context.
-func RequireRole(allowedRoles ...string) gin.HandlerFunc {
+// Uses dependency injection to access user repository
+func RequireRole(userRepo repositories.UserRepository, allowedRoles ...string) gin.HandlerFunc {
     return func(c *gin.Context) {
         // Get userID from context (set by AuthMiddleware)
         userIDStr, exists := c.Get("userID")
@@ -113,9 +113,9 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
             return
         }
 
-        // Query database for user's role
-        var user models.User
-        if err := initializers.DB.First(&user, userID).Error; err != nil {
+        // Query database for user's role using repository
+        user, err := userRepo.FindByID(userID)
+        if err != nil {
             c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "User not found"})
             return
         }
@@ -135,7 +135,7 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
         }
 
         // Store user object in context for use in handlers
-        c.Set("user", &user)
+        c.Set("user", user)
         c.Next()
     }
 }
