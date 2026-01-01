@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/leventeberry/goapi/models"
 	"gorm.io/gorm"
 )
@@ -19,8 +21,15 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 	}
 }
 
+// normalizeEmail normalizes email to lowercase and trims whitespace
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
 // Create inserts a new user into the database
 func (r *userRepository) Create(user *models.User) error {
+	// Normalize email before saving
+	user.Email = normalizeEmail(user.Email)
 	return r.db.Create(user).Error
 }
 
@@ -39,8 +48,11 @@ func (r *userRepository) FindByID(id int) (*models.User, error) {
 
 // FindByEmail retrieves a user by their email
 func (r *userRepository) FindByEmail(email string) (*models.User, error) {
+	// Normalize email for case-insensitive lookup
+	email = normalizeEmail(email)
 	var user models.User
-	err := r.db.Where("email = ?", email).First(&user).Error
+	// Use LOWER() for defensive case-insensitive matching (handles existing mixed-case data)
+	err := r.db.Where("LOWER(email) = LOWER(?)", email).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrUserNotFound
@@ -63,6 +75,8 @@ func (r *userRepository) FindAll() ([]models.User, error) {
 // Update updates an existing user in the database
 // Uses Updates() instead of Save() to only update changed fields
 func (r *userRepository) Update(user *models.User) error {
+	// Normalize email before updating
+	user.Email = normalizeEmail(user.Email)
 	return r.db.Model(user).Updates(user).Error
 }
 
@@ -80,8 +94,11 @@ func (r *userRepository) Delete(id int) error {
 
 // ExistsByEmail checks if a user with the given email exists
 func (r *userRepository) ExistsByEmail(email string) (bool, error) {
+	// Normalize email for case-insensitive lookup
+	email = normalizeEmail(email)
 	var count int64
-	err := r.db.Model(&models.User{}).Where("email = ?", email).Count(&count).Error
+	// Use LOWER() for defensive case-insensitive matching (handles existing mixed-case data)
+	err := r.db.Model(&models.User{}).Where("LOWER(email) = LOWER(?)", email).Count(&count).Error
 	if err != nil {
 		return false, err
 	}

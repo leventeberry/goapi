@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/leventeberry/goapi/cache"
 	"github.com/leventeberry/goapi/logger"
@@ -189,15 +190,20 @@ func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserI
 	}
 
 	// Handle email update with uniqueness check
-	if input.Email != nil && *input.Email != user.Email {
-		exists, err := s.userRepo.ExistsByEmail(*input.Email)
-		if err != nil {
-			return nil, err
+	// Compare normalized emails to handle case differences
+	if input.Email != nil {
+		normalizedInputEmail := strings.ToLower(strings.TrimSpace(*input.Email))
+		normalizedCurrentEmail := strings.ToLower(strings.TrimSpace(user.Email))
+		if normalizedInputEmail != normalizedCurrentEmail {
+			exists, err := s.userRepo.ExistsByEmail(*input.Email)
+			if err != nil {
+				return nil, err
+			}
+			if exists {
+				return nil, ErrEmailExists
+			}
+			user.Email = *input.Email // Repository will normalize on save
 		}
-		if exists {
-			return nil, ErrEmailExists
-		}
-		user.Email = *input.Email
 	}
 
 	// Handle role update with validation
