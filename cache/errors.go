@@ -1,4 +1,9 @@
 package cache
 
-// Cache error types will be defined in Phase 2
+import "errors"
 
+// Cache errors
+var (
+	ErrCacheMiss        = errors.New("cache miss")
+	ErrCacheKeyNotFound = errors.New("cache key not found")
+)
