@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/leventeberry/goapi/container"
@@ -74,6 +77,12 @@ func main() {
 		port = "8080"
 	}
 
+	// Create HTTP server with router
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: router,
+	}
+
 	// Setup graceful shutdown
 	// Listen for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
@@ -81,16 +90,27 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		if err := router.Run(":" + port); err != nil {
+		logger.Log.Info().Str("port", port).Msg("Server is running")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Log.Fatal().Err(err).Msg("Failed to start server")
 		}
 	}()
 
-	logger.Log.Info().Str("port", port).Msg("Server is running")
-
 	// Wait for interrupt signal to gracefully shutdown the server
 	<-quit
 	logger.Log.Info().Msg("Shutting down server...")
+
+	// Create context with timeout for graceful shutdown
+	// Give the server 30 seconds to finish handling existing requests
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Shutdown server with timeout
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Log.Error().Err(err).Msg("Server forced to shutdown")
+	} else {
+		logger.Log.Info().Msg("Server shutdown gracefully")
+	}
 
 	// Cleanup: close Redis connection if it exists
 	initializers.CloseRedis()
