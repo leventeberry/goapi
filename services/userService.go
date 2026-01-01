@@ -29,7 +29,7 @@ func NewUserService(userRepo repositories.UserRepository, cacheClient cache.Cach
 // CreateUser creates a new user with business logic validation
 func (s *userService) CreateUser(ctx context.Context, input *CreateUserInput) (*models.User, error) {
 	// Validate role
-	if input.Role != "" && !s.ValidateRole(input.Role) {
+	if input.Role != "" && !IsValidRole(input.Role) {
 		return nil, ErrInvalidRole
 	}
 
@@ -202,7 +202,7 @@ func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserI
 
 	// Handle role update with validation
 	if input.Role != nil {
-		if !s.ValidateRole(*input.Role) {
+		if !IsValidRole(*input.Role) {
 			return nil, ErrInvalidRole
 		}
 		user.Role = *input.Role
@@ -274,12 +274,7 @@ func (s *userService) DeleteUser(ctx context.Context, id int) error {
 }
 
 // ValidateRole checks if a role is valid
+// Uses the shared IsValidRole function for consistency
 func (s *userService) ValidateRole(role string) bool {
-	validRoles := []string{"user", "admin"}
-	for _, validRole := range validRoles {
-		if role == validRole {
-			return true
-		}
-	}
-	return false
+	return IsValidRole(role)
 }

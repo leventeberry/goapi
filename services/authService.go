@@ -42,15 +42,7 @@ func (s *authService) Register(input *RegisterInput) (*models.User, *middleware.
 	// In a more advanced setup, we'd use a service orchestrator or composition
 
 	// Validate role
-	validRoles := []string{"user", "admin"}
-	roleValid := false
-	for _, validRole := range validRoles {
-		if input.Role == validRole {
-			roleValid = true
-			break
-		}
-	}
-	if !roleValid {
+	if input.Role != "" && !IsValidRole(input.Role) {
 		return nil, nil, ErrInvalidRole
 	}
 
