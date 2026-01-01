@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"errors"
+	"log"
+
 	"github.com/leventeberry/goapi/cache"
 	"github.com/leventeberry/goapi/middleware"
 	"github.com/leventeberry/goapi/models"
@@ -69,11 +71,10 @@ func (s *userService) CreateUser(ctx context.Context, input *CreateUserInput) (*
 
 	// Store in cache after successful creation
 	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
-		// In production, you might want to log this
+		log.Printf("WARN: Failed to cache user by ID %d: %v", user.ID, err)
 	}
 	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
+		log.Printf("WARN: Failed to cache user by email %s: %v", user.Email, err)
 	}
 
 	return user, nil
@@ -90,13 +91,12 @@ func (s *userService) GetUserByID(ctx context.Context, id int) (*models.User, er
 		// Cache hit - return cached user
 		return user, nil
 	}
-	
+
 	// Cache miss or error - fallback to database
 	if !errors.Is(err, cache.ErrCacheMiss) {
-		// Log cache error but continue to database
-		// In production, you might want to log this
+		log.Printf("WARN: Cache error when fetching user by ID %d: %v", id, err)
 	}
-	
+
 	user, err = s.userRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, repositories.ErrUserNotFound) {
@@ -104,15 +104,15 @@ func (s *userService) GetUserByID(ctx context.Context, id int) (*models.User, er
 		}
 		return nil, err
 	}
-	
+
 	// Store in cache for future requests (best effort - don't fail on cache error)
 	if err := s.cache.SetUserByID(ctx, id, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
+		log.Printf("WARN: Failed to cache user by ID %d: %v", id, err)
 	}
 	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
+		log.Printf("WARN: Failed to cache user by email %s: %v", user.Email, err)
 	}
-	
+
 	return user, nil
 }
 
@@ -127,13 +127,12 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*models
 		// Cache hit - return cached user
 		return user, nil
 	}
-	
+
 	// Cache miss or error - fallback to database
 	if !errors.Is(err, cache.ErrCacheMiss) {
-		// Log cache error but continue to database
-		// In production, you might want to log this
+		log.Printf("WARN: Cache error when fetching user by email %s: %v", email, err)
 	}
-	
+
 	user, err = s.userRepo.FindByEmail(email)
 	if err != nil {
 		if errors.Is(err, repositories.ErrUserNotFound) {
@@ -141,15 +140,15 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*models
 		}
 		return nil, err
 	}
-	
+
 	// Store in cache for future requests (best effort - don't fail on cache error)
 	if err := s.cache.SetUserByEmail(ctx, email, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
+		log.Printf("WARN: Failed to cache user by email %s: %v", email, err)
 	}
 	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
+		log.Printf("WARN: Failed to cache user by ID %d: %v", user.ID, err)
 	}
-	
+
 	return user, nil
 }
 
@@ -237,10 +236,10 @@ func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserI
 
 	// Store updated user in cache for future requests
 	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
+		log.Printf("WARN: Failed to cache updated user by ID %d: %v", user.ID, err)
 	}
 	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
-		// Log error but don't fail the request - cache is best effort
+		log.Printf("WARN: Failed to cache updated user by email %s: %v", user.Email, err)
 	}
 
 	return user, nil
@@ -256,9 +255,9 @@ func (s *userService) DeleteUser(ctx context.Context, id int) error {
 		}
 		return err
 	}
-	
+
 	email := user.Email
-	
+
 	// Delete from database
 	err = s.userRepo.Delete(id)
 	if err != nil {
@@ -267,10 +266,10 @@ func (s *userService) DeleteUser(ctx context.Context, id int) error {
 		}
 		return err
 	}
-	
+
 	// Invalidate cache - delete all cached entries for this user
 	s.cache.DeleteUser(ctx, id, email)
-	
+
 	return nil
 }
 
@@ -284,4 +283,3 @@ func (s *userService) ValidateRole(role string) bool {
 	}
 	return false
 }
-
