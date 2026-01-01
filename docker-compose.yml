@@ -1,0 +1,55 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: goapi_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: goapi_user
+      POSTGRES_PASSWORD: goapi_password
+      POSTGRES_DB: goapi
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goapi_user -d goapi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - goapi_network
+
+  # Go API Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goapi_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_USER: goapi_user
+      DB_PASS: goapi_password
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: goapi
+      JWT_SECRET: ${JWT_SECRET:-change_this_to_a_secure_random_string_in_production}
+      PORT: 8080
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - goapi_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  goapi_network:
+    driver: bridge
+

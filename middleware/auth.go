@@ -9,6 +9,7 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/golang-jwt/jwt/v5"
     "github.com/google/uuid"
+    "github.com/leventeberry/goapi/repositories"
 )
 
 const (
@@ -91,4 +92,50 @@ func CreateToken(userID int) (*Authentication, error) {
         ApiKey:   apiKey,
         JWTToken: signedToken,
     }, nil
+}
+
+// RequireRole returns a middleware that checks if the authenticated user has one of the required roles.
+// This middleware must be used after AuthMiddleware, as it relies on userID being set in the context.
+// Uses dependency injection to access user repository
+func RequireRole(userRepo repositories.UserRepository, allowedRoles ...string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // Get userID from context (set by AuthMiddleware)
+        userIDStr, exists := c.Get("userID")
+        if !exists {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+            return
+        }
+
+        // Convert userID string to int
+        userID, err := strconv.Atoi(userIDStr.(string))
+        if err != nil {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+            return
+        }
+
+        // Query database for user's role using repository
+        user, err := userRepo.FindByID(userID)
+        if err != nil {
+            c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "User not found"})
+            return
+        }
+
+        // Check if user's role is in the allowed roles list
+        hasRole := false
+        for _, role := range allowedRoles {
+            if user.Role == role {
+                hasRole = true
+                break
+            }
+        }
+
+        if !hasRole {
+            c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+            return
+        }
+
+        // Store user object in context for use in handlers
+        c.Set("user", user)
+        c.Next()
+    }
 }

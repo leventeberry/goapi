@@ -3,149 +3,206 @@ package controllers
 import (
 	"net/http"
 	"strconv"
-	"errors"
+
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-    "github.com/leventeberry/goapi/models"
+	"github.com/leventeberry/goapi/services"
 )
-  
-func GetUsers(db *gorm.DB) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        // 1. Prepare destination slice
-        var users []models.User
-
-        // 2. Fetch all users; GORM populates 'users' and returns a *gorm.DB
-        result := db.Find(&users)
-        if result.Error != nil {
-            // 3. Handle error
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users"})
-            return
-        }
-
-        // 4. Return the users slice as JSON
-        c.JSON(http.StatusOK, users)
-    }
+// CreateUserInput holds the data for creating a new user
+type CreateUserInput struct {
+	FirstName string `json:"first_name" binding:"required"`
+	LastName  string `json:"last_name" binding:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required,min=8"`
+	PhoneNum  string `json:"phone_number"`
+	Role      string `json:"role"`
 }
 
-func GetUser(db *gorm.DB) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        // 1. Parse & validate the ID
-        idParam := c.Param("id")
-        id, err := strconv.ParseUint(idParam, 10, 64)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-            return
-        }
-
-        // 2. Attempt to load the user
-        var user models.User
-        res := db.First(&user, id)
-        if res.Error != nil {
-            if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-                c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-            } else {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-            }
-            return
-        }
-
-        // 3. Return the user
-        c.JSON(http.StatusOK, user)
-    }
+// UpdateUserInput holds the data for updating a user
+type UpdateUserInput struct {
+	FirstName *string `json:"first_name" binding:"omitempty,min=1,max=50"`
+	LastName  *string `json:"last_name" binding:"omitempty,min=1,max=50"`
+	Email     *string `json:"email" binding:"omitempty,email"`
+	Password  *string `json:"password" binding:"omitempty,min=8"`
+	PhoneNum  *string `json:"phone_number" binding:"omitempty,max=20"`
+	Role      *string `json:"role" binding:"omitempty"`
 }
 
-func CreateUser(db *gorm.DB) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        // 1. Bind incoming JSON into a User struct
-        var user models.User
-        if err := c.ShouldBindJSON(&user); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-            return
-        }
-
-        // 2. Let GORM insert the new record
-        result := db.Create(&user)
-        if result.Error != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-            return
-        }
-
-        // 3. Return the created user (with its new ID) and 201 status
-        c.JSON(http.StatusCreated, user)
-    }
+// GetUsers retrieves all users
+// @Summary      Get all users
+// @Description  Get a list of all users (requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   models.User  "List of users"
+// @Failure      401  {object}  map[string]string  "Unauthorized"
+// @Failure      500  {object}  map[string]string  "Server error"
+// @Router       /users [get]
+func GetUsers(userService services.UserService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		users, err := userService.GetAllUsers()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users"})
+			return
+		}
+		c.JSON(http.StatusOK, users)
+	}
 }
 
-func UpdateUser(db *gorm.DB) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        // 1. Parse & validate the ID
-        idParam := c.Param("id")
-        id, err := strconv.ParseUint(idParam, 10, 64)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-            return
-        }
+// GetUser retrieves a specific user by ID
+// @Summary      Get user by ID
+// @Description  Get a specific user by their ID (requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "User ID"
+// @Success      200  {object}  models.User  "User object"
+// @Failure      400  {object}  map[string]string  "Invalid user ID"
+// @Failure      401  {object}  map[string]string  "Unauthorized"
+// @Failure      404  {object}  map[string]string  "User not found"
+// @Failure      500  {object}  map[string]string  "Server error"
+// @Router       /users/{id} [get]
+func GetUser(userService services.UserService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
 
-        // 2. Bind incoming JSON into a temporary user
-        var input models.User
-        if err := c.ShouldBindJSON(&input); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-            return
-        }
+		user, err := userService.GetUserByID(id)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
 
-        // 3. Load existing record
-        var user models.User
-        if err := db.First(&user, id).Error; err != nil {
-            if errors.Is(err, gorm.ErrRecordNotFound) {
-                c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-            } else {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-            }
-            return
-        }
-
-        // 4. Copy over fields to be updated
-        user.FirstName = input.FirstName
-        user.LastName  = input.LastName
-        user.Email     = input.Email
-        user.PassHash  = input.PassHash
-        user.PhoneNum  = input.PhoneNum
-        user.Role      = input.Role
-
-        // 5. Save updates
-        if err := db.Save(&user).Error; err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
-            return
-        }
-
-        // 6. Return the updated user
-        c.JSON(http.StatusOK, user)
-    }
+		c.JSON(http.StatusOK, user)
+	}
 }
 
-func DeleteUser(db *gorm.DB) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        // 1. Parse & validate the ID
-        idParam := c.Param("id")
-        id, err := strconv.ParseUint(idParam, 10, 64)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-            return
-        }
+// CreateUser creates a new user
+// @Summary      Create new user
+// @Description  Create a new user account (requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        user  body      CreateUserInput  true  "User data"
+// @Success      201   {object}  models.User  "Created user"
+// @Failure      400   {object}  map[string]string  "Invalid request"
+// @Failure      401   {object}  map[string]string  "Unauthorized"
+// @Failure      409   {object}  map[string]string  "Email already registered"
+// @Failure      500   {object}  map[string]string  "Server error"
+// @Router       /users [post]
+func CreateUser(userService services.UserService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var input CreateUserInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
 
-        // 2. Perform the delete
-        result := db.Delete(&models.User{}, id)
-        if result.Error != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-            return
-        }
+		createInput := &services.CreateUserInput{
+			FirstName: input.FirstName,
+			LastName:  input.LastName,
+			Email:     input.Email,
+			Password:  input.Password,
+			PhoneNum:  input.PhoneNum,
+			Role:      input.Role,
+		}
 
-        // 3. Handle not-found
-        if result.RowsAffected == 0 {
-            c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-            return
-        }
+		user, err := userService.CreateUser(createInput)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
 
-        // 4. Success
-        c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
-    }
+		c.JSON(http.StatusCreated, user)
+	}
+}
+
+// UpdateUser updates an existing user
+// @Summary      Update user
+// @Description  Update user information (partial updates supported, requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      int              true  "User ID"
+// @Param        user  body      UpdateUserInput  true  "User update data"
+// @Success      200   {object}  models.User  "Updated user"
+// @Failure      400   {object}  map[string]string  "Invalid request"
+// @Failure      401   {object}  map[string]string  "Unauthorized"
+// @Failure      404   {object}  map[string]string  "User not found"
+// @Failure      409   {object}  map[string]string  "Email already registered"
+// @Failure      500   {object}  map[string]string  "Server error"
+// @Router       /users/{id} [put]
+func UpdateUser(userService services.UserService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		var input UpdateUserInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		updateInput := &services.UpdateUserInput{
+			FirstName: input.FirstName,
+			LastName:  input.LastName,
+			Email:     input.Email,
+			Password:  input.Password,
+			PhoneNum:  input.PhoneNum,
+			Role:      input.Role,
+		}
+
+		user, err := userService.UpdateUser(id, updateInput)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, user)
+	}
+}
+
+// DeleteUser deletes a user (admin only)
+// @Summary      Delete user
+// @Description  Delete a user by ID (requires admin role)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "User ID"
+// @Success      200  {object}  map[string]string  "User deleted successfully"
+// @Failure      400  {object}  map[string]string  "Invalid user ID"
+// @Failure      401  {object}  map[string]string  "Unauthorized"
+// @Failure      403  {object}  map[string]string  "Insufficient permissions"
+// @Failure      404  {object}  map[string]string  "User not found"
+// @Failure      500  {object}  map[string]string  "Server error"
+// @Router       /users/{id} [delete]
+func DeleteUser(userService services.UserService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		idParam := c.Param("id")
+		id, err := strconv.Atoi(idParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+
+		err = userService.DeleteUser(id)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+	}
 }
