@@ -116,9 +116,9 @@ docker-shell-api: ## Open shell in API container
 	@echo "$(GREEN)Opening shell in API container...$(NC)"
 	$(DOCKER_COMPOSE) exec api sh
 
-docker-shell-db: ## Open MySQL shell in database container
-	@echo "$(GREEN)Opening MySQL shell...$(NC)"
-	$(DOCKER_COMPOSE) exec db mysql -u goapi_user -pgoapi_password goapi
+docker-shell-db: ## Open PostgreSQL shell in database container
+	@echo "$(GREEN)Opening PostgreSQL shell...$(NC)"
+	$(DOCKER_COMPOSE) exec db psql -U goapi_user -d goapi
 
 # Database Commands
 db-migrate: ## Run database migrations (local)

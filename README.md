@@ -16,10 +16,10 @@ A RESTful API built with Go (Golang) using the Gin web framework. This API provi
 
 ## Tech Stack
 
-- **Go 1.24.1** - Programming language
+- **Go 1.25.5** - Programming language
 - **Gin** - HTTP web framework
 - **GORM** - ORM library for database operations
-- **MySQL** - Database (via GORM MySQL driver)
+- **PostgreSQL** - Database (via GORM PostgreSQL driver)
 - **JWT (golang-jwt/jwt/v5)** - JSON Web Token implementation
 - **Bcrypt (golang.org/x/crypto)** - Password hashing
 - **godotenv** - Environment variable management
@@ -61,8 +61,8 @@ goapi/
 ## Prerequisites
 
 ### For Local Development:
-- Go 1.24.1 or higher
-- MySQL database server
+- Go 1.25.5 or higher
+- PostgreSQL database server (14+)
 - Git (for cloning the repository)
 
 ### For Docker:
@@ -97,7 +97,8 @@ goapi/
    # Database Configuration
    DB_USER=your_db_user
    DB_PASS=your_db_password
-   DB_HOST=localhost:3306
+   DB_HOST=localhost
+   DB_PORT=5432
    DB_NAME=your_database_name
 
    # JWT Secret (use a strong random string)
@@ -109,7 +110,7 @@ goapi/
 
 4. **Set up the database**
    
-   The application will automatically create the necessary tables using GORM AutoMigrate. Ensure your MySQL database exists and is accessible with the credentials provided in `.env`.
+   The application will automatically create the necessary tables using GORM AutoMigrate. Ensure your PostgreSQL database exists and is accessible with the credentials provided in `.env`.
 
 5. **Run the application**
    
@@ -186,7 +187,7 @@ make docker-logs-api
 - `make docker-rebuild` - Rebuild and restart containers
 - `make docker-ps` - Show running Docker containers
 - `make docker-shell-api` - Open shell in API container
-- `make docker-shell-db` - Open MySQL shell in database container
+- `make docker-shell-db` - Open PostgreSQL shell in database container
 
 **Documentation:**
 - `make swagger` - Generate Swagger documentation (auto-installs swag if needed)
@@ -208,7 +209,7 @@ make docker-logs-api
 
 ### Quick Start with Docker Compose
 
-The easiest way to run the entire application stack (API + MySQL) is using Docker Compose:
+The easiest way to run the entire application stack (API + PostgreSQL) is using Docker Compose:
 
 #### Using Make (Recommended)
 
@@ -248,7 +249,7 @@ The easiest way to run the entire application stack (API + MySQL) is using Docke
 5. **Access the API**
    - API: `http://localhost:8080`
    - Swagger UI: `http://localhost:8080/swagger/index.html`
-   - MySQL: `localhost:3306`
+   - PostgreSQL: `localhost:5432`
 
 6. **Stop services**
    ```bash
@@ -281,7 +282,7 @@ docker-compose down -v
 ### Docker Compose Services
 
 - **`api`**: Go API application (port 8080)
-- **`db`**: MySQL 8.0 database (port 3306)
+- **`db`**: PostgreSQL 16 database (port 5432)
 
 ### Default Database Credentials (Docker)
 
@@ -289,7 +290,6 @@ When using Docker Compose, the database is automatically configured with:
 - **Database**: `goapi`
 - **User**: `goapi_user`
 - **Password**: `goapi_password`
-- **Root Password**: `rootpassword`
 
 These credentials are set in `docker-compose.yml` and can be customized if needed.
 
@@ -316,7 +316,8 @@ docker build -t goapi:latest .
 docker run -p 8080:8080 \
   -e DB_USER=goapi_user \
   -e DB_PASS=goapi_password \
-  -e DB_HOST=host.docker.internal:3306 \
+  -e DB_HOST=host.docker.internal \
+  -e DB_PORT=5432 \
   -e DB_NAME=goapi \
   -e JWT_SECRET=your_secret_key \
   goapi:latest
@@ -541,11 +542,14 @@ Log levels:
 
 ## Database
 
-The application uses MySQL with GORM for database operations. The schema is automatically created via GORM AutoMigrate on startup.
+The application uses PostgreSQL with GORM for database operations. The schema is automatically created via GORM AutoMigrate on startup.
 
 ### Manual Schema Setup
 
-If you prefer to set up the database manually, refer to `schema.sql` for the table structure.
+If you prefer to set up the database manually, refer to `schema.sql` for the table structure. The schema includes:
+- Automatic `updated_at` timestamp updates via PostgreSQL trigger
+- Index on email column for faster lookups
+- Proper PostgreSQL data types (SERIAL for auto-increment IDs)
 
 ## Error Responses
 

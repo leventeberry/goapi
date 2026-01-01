@@ -5,7 +5,7 @@ import (
     "log"
     "os"
     "github.com/joho/godotenv"
-    "gorm.io/driver/mysql"
+    "gorm.io/driver/postgres"
     "gorm.io/gorm"
     "github.com/leventeberry/goapi/models"
 )
@@ -33,7 +33,8 @@ func validateEnv() {
     requiredVars := map[string]string{
         "DB_USER":    "Database username",
         "DB_PASS":    "Database password",
-        "DB_HOST":    "Database host (e.g., localhost:3306)",
+        "DB_HOST":    "Database host (e.g., localhost)",
+        "DB_PORT":    "Database port (e.g., 5432)",
         "DB_NAME":    "Database name",
         "JWT_SECRET": "JWT secret key for token signing",
     }
@@ -53,7 +54,8 @@ func validateEnv() {
                 "Example .env file:\n"+
                 "DB_USER=your_db_user\n"+
                 "DB_PASS=your_db_password\n"+
-                "DB_HOST=localhost:3306\n"+
+                "DB_HOST=localhost\n"+
+                "DB_PORT=5432\n"+
                 "DB_NAME=your_database_name\n"+
                 "JWT_SECRET=your_super_secret_jwt_key_here\n"+
                 "PORT=8080\n",
@@ -62,16 +64,20 @@ func validateEnv() {
     }
 }
 
-// connectDB opens a MySQL connection using GORM
+// connectDB opens a PostgreSQL connection using GORM
 func connectDB() {
     user := os.Getenv("DB_USER")
     pass := os.Getenv("DB_PASS")
     host := os.Getenv("DB_HOST")
+    port := os.Getenv("DB_PORT")
+    if port == "" {
+        port = "5432"
+    }
     name := os.Getenv("DB_NAME")
-    dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, pass, host, name)
+    dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC", host, user, pass, name, port)
 
     var err error
-    DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+    DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
     if err != nil {
         log.Fatalf("failed to connect to database: %v", err)
     }

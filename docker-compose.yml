@@ -1,23 +1,26 @@
 services:
-  # MySQL Database
+  # PostgreSQL Database
   db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     container_name: goapi_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: goapi
-      MYSQL_USER: goapi_user
-      MYSQL_PASSWORD: goapi_password
+      POSTGRES_USER: goapi_user
+      POSTGRES_PASSWORD: goapi_password
+      POSTGRES_DB: goapi
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U goapi_user -d goapi"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    networks:
+      - goapi_network
 
   # Go API Application
   api:
@@ -31,7 +34,8 @@ services:
     environment:
       DB_USER: goapi_user
       DB_PASS: goapi_password
-      DB_HOST: db:3306
+      DB_HOST: db
+      DB_PORT: 5432
       DB_NAME: goapi
       JWT_SECRET: ${JWT_SECRET:-change_this_to_a_secure_random_string_in_production}
       PORT: 8080
@@ -42,7 +46,7 @@ services:
       - goapi_network
 
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
 
 networks:
