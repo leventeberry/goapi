@@ -17,12 +17,12 @@ import (
 )
 
 var (
-	testRouter *gin.Engine
+	testRouter    *gin.Engine
 	testContainer *container.Container
-	userToken string
-	adminToken string
-	userID int
-	adminID int
+	userToken     string
+	adminToken    string
+	userID        int
+	adminID       int
 )
 
 // Setup test environment
@@ -32,10 +32,10 @@ func TestMain(m *testing.M) {
 
 	// Initialize database (use test database if available)
 	initializers.Init()
-	
+
 	// Create container
-	testContainer = container.NewContainer(initializers.DB)
-	
+	testContainer = container.NewContainer(initializers.DB, initializers.GetCacheClient())
+
 	// Create router
 	testRouter = gin.New()
 	routes.SetupRoutes(testRouter, testContainer)
@@ -484,4 +484,3 @@ func TestRegisterInvalidRole(t *testing.T) {
 
 	fmt.Println("✓ Register with invalid role test passed")
 }
-
