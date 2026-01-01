@@ -52,6 +52,17 @@ func ReturnSuccessData(c *gin.Context, user *models.User, token *middleware.Auth
 }
 
 // LoginUser authenticates a user and returns a JWT token.
+// @Summary      Login user
+// @Description  Authenticate a user with email and password, returns JWT token
+// @Tags         authentication
+// @Accept       json
+// @Produce      json
+// @Param        credentials  body      RequestUserInput  true  "Login credentials"
+// @Success      200          {object}  map[string]interface{}  "Login successful"
+// @Failure      400          {object}  map[string]string  "Invalid request"
+// @Failure      401          {object}  map[string]string  "Invalid credentials"
+// @Failure      500          {object}  map[string]string  "Server error"
+// @Router       /login [post]
 func LoginUser(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input RequestUserInput
@@ -89,6 +100,17 @@ func LoginUser(db *gorm.DB) gin.HandlerFunc {
 }
 
 // SignupUser registers a new user and returns a JWT token.
+// @Summary      Register new user
+// @Description  Create a new user account and receive JWT token
+// @Tags         authentication
+// @Accept       json
+// @Produce      json
+// @Param        user  body      SignupUserInput  true  "User registration data"
+// @Success      200   {object}  map[string]interface{}  "Registration successful"
+// @Failure      400   {object}  map[string]string  "Invalid request"
+// @Failure      409   {object}  map[string]string  "Email already registered"
+// @Failure      500   {object}  map[string]string  "Server error"
+// @Router       /register [post]
 func SignupUser(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input SignupUserInput

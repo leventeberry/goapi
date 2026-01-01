@@ -11,6 +11,17 @@ import (
 	"gorm.io/gorm"
 )
 
+// GetUsers retrieves all users.
+// @Summary      Get all users
+// @Description  Get a list of all users (requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   models.User  "List of users"
+// @Failure      401  {object}  map[string]string  "Unauthorized"
+// @Failure      500  {object}  map[string]string  "Server error"
+// @Router       /users [get]
 func GetUsers(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Prepare destination slice
@@ -29,6 +40,20 @@ func GetUsers(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+// GetUser retrieves a specific user by ID.
+// @Summary      Get user by ID
+// @Description  Get a specific user by their ID (requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "User ID"
+// @Success      200  {object}  models.User  "User object"
+// @Failure      400  {object}  map[string]string  "Invalid user ID"
+// @Failure      401  {object}  map[string]string  "Unauthorized"
+// @Failure      404  {object}  map[string]string  "User not found"
+// @Failure      500  {object}  map[string]string  "Server error"
+// @Router       /users/{id} [get]
 func GetUser(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Parse & validate the ID
@@ -66,6 +91,20 @@ type CreateUserInput struct {
 	Role      string `json:"role"`
 }
 
+// CreateUser creates a new user.
+// @Summary      Create new user
+// @Description  Create a new user account (requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        user  body      CreateUserInput  true  "User data"
+// @Success      201   {object}  models.User  "Created user"
+// @Failure      400   {object}  map[string]string  "Invalid request"
+// @Failure      401   {object}  map[string]string  "Unauthorized"
+// @Failure      409   {object}  map[string]string  "Email already registered"
+// @Failure      500   {object}  map[string]string  "Server error"
+// @Router       /users [post]
 func CreateUser(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Bind incoming JSON into input struct
@@ -130,6 +169,22 @@ type UpdateUserInput struct {
 	Role      string `json:"role" binding:"omitempty"`
 }
 
+// UpdateUser updates an existing user.
+// @Summary      Update user
+// @Description  Update user information (partial updates supported, requires authentication)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      int              true  "User ID"
+// @Param        user  body      UpdateUserInput  true  "User update data"
+// @Success      200   {object}  models.User  "Updated user"
+// @Failure      400   {object}  map[string]string  "Invalid request"
+// @Failure      401   {object}  map[string]string  "Unauthorized"
+// @Failure      404   {object}  map[string]string  "User not found"
+// @Failure      409   {object}  map[string]string  "Email already registered"
+// @Failure      500   {object}  map[string]string  "Server error"
+// @Router       /users/{id} [put]
 func UpdateUser(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Parse & validate the ID
@@ -217,6 +272,21 @@ func UpdateUser(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
+// DeleteUser deletes a user (admin only).
+// @Summary      Delete user
+// @Description  Delete a user by ID (requires admin role)
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "User ID"
+// @Success      200  {object}  map[string]string  "User deleted successfully"
+// @Failure      400  {object}  map[string]string  "Invalid user ID"
+// @Failure      401  {object}  map[string]string  "Unauthorized"
+// @Failure      403  {object}  map[string]string  "Insufficient permissions"
+// @Failure      404  {object}  map[string]string  "User not found"
+// @Failure      500  {object}  map[string]string  "Server error"
+// @Router       /users/{id} [delete]
 func DeleteUser(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. Parse & validate the ID
