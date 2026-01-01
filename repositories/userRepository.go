@@ -61,8 +61,9 @@ func (r *userRepository) FindAll() ([]models.User, error) {
 }
 
 // Update updates an existing user in the database
+// Uses Updates() instead of Save() to only update changed fields
 func (r *userRepository) Update(user *models.User) error {
-	return r.db.Save(user).Error
+	return r.db.Model(user).Updates(user).Error
 }
 
 // Delete removes a user from the database
