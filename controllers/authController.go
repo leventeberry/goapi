@@ -86,6 +86,12 @@ func SignupUser(authService services.AuthService) gin.HandlerFunc {
 			return
 		}
 
+		// Validate password strength
+		if err := services.ValidatePasswordStrength(input.Password); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		registerInput := &services.RegisterInput{
 			FirstName: input.FirstName,
 			LastName:  input.LastName,

@@ -117,7 +117,7 @@ func TestRegisterUser(t *testing.T) {
 		"first_name":   "John",
 		"last_name":    "Doe",
 		"email":        "john.doe@test.com",
-		"password":     "password123",
+		"password":     "Password123!",
 		"phone_number": "+1234567890",
 		"role":         "user",
 	}
@@ -154,7 +154,7 @@ func TestRegisterAdmin(t *testing.T) {
 		"first_name":   "Admin",
 		"last_name":    "User",
 		"email":        "admin@test.com",
-		"password":     "adminpass123",
+		"password":     "AdminPass123!",
 		"phone_number": "+1234567891",
 		"role":         "admin",
 	}
@@ -214,7 +214,7 @@ func TestLogin(t *testing.T) {
 func TestLoginInvalidCredentials(t *testing.T) {
 	loginData := map[string]interface{}{
 		"email":    "john.doe@test.com",
-		"password": "wrongpassword",
+		"password": "WrongPassword123!",
 	}
 
 	w, err := makeRequest("POST", "/login", loginData, "")
@@ -328,7 +328,7 @@ func TestCreateUser(t *testing.T) {
 		"first_name":   "Jane",
 		"last_name":    "Smith",
 		"email":        "jane.smith@test.com",
-		"password":     "password123",
+		"password":     "Password123!",
 		"phone_number": "+1234567892",
 		"role":         "user",
 	}
@@ -400,7 +400,7 @@ func TestDeleteUserAsAdmin(t *testing.T) {
 		"first_name":   "ToDelete",
 		"last_name":    "User",
 		"email":        "todelete@test.com",
-		"password":     "password123",
+		"password":     "Password123!",
 		"phone_number": "+1234567893",
 		"role":         "user",
 	}
@@ -460,7 +460,7 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 		"first_name":   "Duplicate",
 		"last_name":    "User",
 		"email":        "john.doe@test.com", // Already registered
-		"password":     "password123",
+		"password":     "Password123!",
 		"phone_number": "+1234567894",
 		"role":         "user",
 	}
@@ -483,7 +483,7 @@ func TestRegisterInvalidRole(t *testing.T) {
 		"first_name":   "Invalid",
 		"last_name":    "Role",
 		"email":        "invalidrole@test.com",
-		"password":     "password123",
+		"password":     "Password123!",
 		"phone_number": "+1234567895",
 		"role":         "invalid_role",
 	}
@@ -519,7 +519,7 @@ func TestGetUsersPaginated(t *testing.T) {
 			"first_name":   "John",
 			"last_name":    "Doe",
 			"email":        "john.doe@test.com",
-			"password":     "password123",
+			"password":     "Password123!",
 			"phone_number": "+1234567890",
 			"role":         "user",
 		}

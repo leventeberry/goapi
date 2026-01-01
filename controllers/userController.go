@@ -165,6 +165,12 @@ func CreateUser(userService services.UserService) gin.HandlerFunc {
 			return
 		}
 
+		// Validate password strength
+		if err := services.ValidatePasswordStrength(input.Password); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		createInput := &services.CreateUserInput{
 			FirstName: input.FirstName,
 			LastName:  input.LastName,
@@ -213,6 +219,14 @@ func UpdateUser(userService services.UserService) gin.HandlerFunc {
 		if err := c.ShouldBindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+
+		// Validate password strength if password is being updated
+		if input.Password != nil {
+			if err := services.ValidatePasswordStrength(*input.Password); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 		}
 
 		updateInput := &services.UpdateUserInput{
