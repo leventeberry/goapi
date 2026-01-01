@@ -3,8 +3,10 @@ package controllers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/leventeberry/goapi/models"
 	"github.com/leventeberry/goapi/services"
 )
 // CreateUserInput holds the data for creating a new user
@@ -25,6 +27,42 @@ type UpdateUserInput struct {
 	Password  *string `json:"password" binding:"omitempty,min=8,max=128"`
 	PhoneNum  *string `json:"phone_number" binding:"omitempty,max=20"`
 	Role      *string `json:"role" binding:"omitempty,oneof=user admin"`
+}
+
+// UserResponse represents a user in API responses
+// Excludes sensitive fields like password hash
+type UserResponse struct {
+	ID        int    `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	PhoneNum  string `json:"phone_number"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+// toUserResponse converts a models.User to UserResponse
+func toUserResponse(user *models.User) *UserResponse {
+	return &UserResponse{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Email:     user.Email,
+		PhoneNum:  user.PhoneNum,
+		Role:      user.Role,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+// toUserResponseList converts a slice of models.User to []UserResponse
+func toUserResponseList(users []models.User) []UserResponse {
+	responses := make([]UserResponse, len(users))
+	for i := range users {
+		responses[i] = *toUserResponse(&users[i])
+	}
+	return responses
 }
 
 // GetUsers retrieves all users with optional pagination
@@ -106,7 +144,7 @@ func GetUsers(userService services.UserService) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users"})
 			return
 		}
-		c.JSON(http.StatusOK, users)
+		c.JSON(http.StatusOK, toUserResponseList(users))
 	}
 }
 
@@ -139,7 +177,7 @@ func GetUser(userService services.UserService) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, user)
+		c.JSON(http.StatusOK, toUserResponse(user))
 	}
 }
 
@@ -186,7 +224,7 @@ func CreateUser(userService services.UserService) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, user)
+		c.JSON(http.StatusCreated, toUserResponse(user))
 	}
 }
 
@@ -244,7 +282,7 @@ func UpdateUser(userService services.UserService) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, user)
+		c.JSON(http.StatusOK, toUserResponse(user))
 	}
 }
 
