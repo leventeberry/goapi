@@ -16,6 +16,7 @@ var DB *gorm.DB
 // Init loads environment variables, connects to the database, and runs migrations.
 func Init() {
     loadEnv()
+    validateEnv()
     connectDB()
     migrateDB()
 }
@@ -24,6 +25,40 @@ func Init() {
 func loadEnv() {
     if err := godotenv.Load(); err != nil {
         log.Println("No .env file found; relying on environment variables")
+    }
+}
+
+// validateEnv checks that all required environment variables are set
+func validateEnv() {
+    requiredVars := map[string]string{
+        "DB_USER":    "Database username",
+        "DB_PASS":    "Database password",
+        "DB_HOST":    "Database host (e.g., localhost:3306)",
+        "DB_NAME":    "Database name",
+        "JWT_SECRET": "JWT secret key for token signing",
+    }
+
+    var missing []string
+    for key, description := range requiredVars {
+        value := os.Getenv(key)
+        if value == "" {
+            missing = append(missing, fmt.Sprintf("  %s (%s)", key, description))
+        }
+    }
+
+    if len(missing) > 0 {
+        log.Fatalf(
+            "Missing required environment variables:\n%s\n\n"+
+                "Please create a .env file in the root directory with these variables, or set them in your environment.\n"+
+                "Example .env file:\n"+
+                "DB_USER=your_db_user\n"+
+                "DB_PASS=your_db_password\n"+
+                "DB_HOST=localhost:3306\n"+
+                "DB_NAME=your_database_name\n"+
+                "JWT_SECRET=your_super_secret_jwt_key_here\n"+
+                "PORT=8080\n",
+            fmt.Sprint(missing),
+        )
     }
 }
 
