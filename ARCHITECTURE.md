@@ -58,7 +58,7 @@ factories/
 ### 4. **Dependency Injection Container**
 - **Location**: `container/`
 - **Purpose**: Manages all application dependencies
-- **Benefits**:
+- **Benefits**: 
   - Single source of truth for dependencies
   - Easy to test with mock containers
   - No global state
@@ -68,6 +68,32 @@ factories/
 container/
 └── container.go  # DI container with all dependencies
 ```
+
+### 5. **Cache Abstraction Layer**
+- **Location**: `cache/`
+- **Purpose**: Provides caching abstraction with Redis and no-op implementations
+- **Benefits**:
+  - Optional caching (graceful degradation)
+  - Easy to swap implementations
+  - Testable with mock cache
+  - Supports both user caching and rate limiting
+
+**Structure:**
+```
+cache/
+├── interfaces.go      # Cache interface definition
+├── redis_cache.go     # Redis implementation
+├── noop_cache.go      # No-op implementation (when Redis disabled)
+├── constants.go       # Cache key patterns and TTL values
+└── errors.go          # Cache-specific errors
+```
+
+**Cache Strategy:**
+- **Cache-Aside Pattern**: Application manages cache, checks cache before database
+- **Dual-Key Caching**: Stores user data by both ID and email for efficient lookups
+- **Automatic Invalidation**: Cache invalidated on user updates/deletes
+- **TTL-Based Expiration**: User cache expires after 15 minutes
+- **Distributed Rate Limiting**: Redis enables shared rate limits across instances
 
 ## Architecture Layers
 
@@ -81,29 +107,54 @@ container/
 ┌─────────────────────────────────────┐
 │         Service Layer                │
 │  (Business Logic, Validation)       │
+│  (Cache-Aside Pattern)              │
 └──────────────┬──────────────────────┘
                │
-               ▼
-┌─────────────────────────────────────┐
-│         Repository Layer             │
-│  (Data Access, Database Operations) │
-└──────────────┬──────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────┐
-│         Database                     │
-│  (PostgreSQL via GORM)               │
-└─────────────────────────────────────┘
+               ├──────────────────────┐
+               │                      │
+               ▼                      ▼
+┌─────────────────────────┐  ┌─────────────────────────┐
+│      Cache Layer         │  │    Repository Layer      │
+│  (Redis/No-Op Cache)     │  │  (Data Access, DB Ops)  │
+└────────────┬────────────┘  └────────────┬────────────┘
+             │                             │
+             │                             ▼
+             │              ┌─────────────────────────┐
+             │              │      Database            │
+             │              │  (PostgreSQL via GORM)   │
+             │              └─────────────────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│      Redis Cache         │
+│  (Optional, Distributed) │
+└─────────────────────────┘
 ```
 
 ## Dependency Flow
 
-1. **main.go** → Creates `Container` using Factory Pattern
-2. **Container** → Uses Factories to create Repositories and Services
+1. **main.go** → Initializes Redis (if enabled) → Creates `Container` using Factory Pattern
+2. **Container** → Uses Factories to create Repositories, Services, and Cache
 3. **Routes** → Receives Container, extracts Services
 4. **Controllers** → Receive Services (not database directly)
-5. **Services** → Use Repositories for data access
-6. **Repositories** → Use GORM for database operations
+5. **Services** → Use Cache (cache-aside pattern) and Repositories for data access
+6. **Cache** → Redis or No-Op implementation (based on configuration)
+7. **Repositories** → Use GORM for database operations
+
+### Cache Flow (Cache-Aside Pattern)
+
+**GetUserByID Example:**
+1. Service calls `cache.GetUserByID()`
+2. If cache hit → return cached user
+3. If cache miss → query database via repository
+4. Store result in cache (both ID and email keys)
+5. Return user to controller
+
+**UpdateUser Example:**
+1. Service updates user in database via repository
+2. Service invalidates cache: `cache.DeleteUser(id, email)`
+3. Service stores updated user in cache
+4. Return updated user to controller
 
 ## Key Principles Applied
 
@@ -194,6 +245,12 @@ The new architecture:
 
 ```
 goapi/
+├── cache/              # Cache abstraction layer
+│   ├── interfaces.go      # Cache interface
+│   ├── redis_cache.go     # Redis implementation
+│   ├── noop_cache.go      # No-op implementation
+│   ├── constants.go       # Key patterns and TTL values
+│   └── errors.go          # Cache errors
 ├── container/          # Dependency Injection Container
 ├── controllers/       # HTTP handlers (thin layer)
 ├── factories/          # Factory Pattern implementations
@@ -202,9 +259,69 @@ goapi/
 ├── repositories/       # Data access layer
 ├── routes/             # Route definitions
 ├── services/           # Business logic layer
-├── initializers/       # App initialization
+├── initializers/       # App initialization (DB + Redis)
 └── main.go            # Application entry point
 ```
+
+## Cache Layer Details
+
+### Cache Interface
+The `cache.Cache` interface provides a unified API for:
+- User caching operations (GetUserByID, SetUserByID, GetUserByEmail, SetUserByEmail)
+- Cache invalidation (DeleteUser, DeleteUserByID, DeleteUserByEmail)
+- Rate limiting operations (IncrementRateLimit, GetRateLimit, ResetRateLimit)
+- General cache operations (Get, Set, Delete, Exists)
+
+### Cache Implementations
+
+**Redis Cache (`redis_cache.go`):**
+- Wraps `github.com/redis/go-redis/v9` client
+- Serializes user objects as JSON
+- Uses key patterns: `user:id:{id}`, `user:email:{email}`, `ratelimit:{key}`
+- TTL-based expiration (15 minutes for users, 1 minute for rate limits)
+
+**No-Op Cache (`noop_cache.go`):**
+- Used when Redis is disabled or unavailable
+- All operations are no-ops (do nothing)
+- Returns cache miss for all get operations
+- Ensures application works without Redis
+
+### Cache Configuration
+
+**TTL Values** (defined in `cache/constants.go`):
+- `UserCacheTTL`: 15 minutes - Balances freshness with efficiency
+- `RateLimitWindow`: 1 minute - Matches rate limiter configuration
+
+**Key Patterns:**
+- User by ID: `user:id:{id}`
+- User by Email: `user:email:{email}`
+- Rate Limit: `ratelimit:{ip}`
+
+### Cache Invalidation Strategy
+
+1. **On User Update**: 
+   - Delete all cached entries for the user (ID and email keys)
+   - Store updated user in cache
+
+2. **On User Delete**:
+   - Delete all cached entries for the user
+
+3. **On Email Change**:
+   - Delete old email cache key
+   - Delete ID cache key
+   - Store updated user with new keys
+
+4. **TTL Expiration**:
+   - Cache entries automatically expire after TTL
+   - Next request will refresh from database
+
+### Rate Limiting with Redis
+
+When Redis is enabled:
+- Rate limiting uses Redis INCR with expiration
+- Distributed across all API instances
+- Sliding window approach (1-minute window)
+- Automatically falls back to in-memory if Redis unavailable
 
 ## Best Practices Followed
 
@@ -214,6 +331,9 @@ goapi/
 4. ✅ **Factory pattern** for object creation
 5. ✅ **Repository pattern** for data access
 6. ✅ **Service layer** for business logic
-7. ✅ **Error handling** with typed errors
-8. ✅ **Separation of concerns** at every level
+7. ✅ **Cache abstraction** for optional caching
+8. ✅ **Cache-aside pattern** for cache management
+9. ✅ **Graceful degradation** (works without Redis)
+10. ✅ **Error handling** with typed errors
+11. ✅ **Separation of concerns** at every level
 

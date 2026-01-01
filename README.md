@@ -8,7 +8,8 @@ A RESTful API built with Go (Golang) using the Gin web framework. This API provi
 - 👥 **User Management** - Full CRUD operations for user accounts
 - 🛡️ **Role-Based Access Control** - Support for `user` and `admin` roles
 - 🔒 **Password Security** - Bcrypt password hashing with secure defaults
-- ⚡ **Rate Limiting** - IP-based rate limiting (60 requests/minute with burst of 10)
+- ⚡ **Rate Limiting** - IP-based rate limiting (60 requests/minute with burst of 10), supports Redis for distributed rate limiting
+- 🚀 **Redis Caching** - Optional Redis integration for user caching and distributed rate limiting
 - 📝 **Request Logging** - Comprehensive HTTP request logging with status codes
 - 🗄️ **Database Migrations** - Automatic database schema migration using GORM
 - 🏥 **Health Check** - Root endpoint for API status verification
@@ -20,6 +21,7 @@ A RESTful API built with Go (Golang) using the Gin web framework. This API provi
 - **Gin** - HTTP web framework
 - **GORM** - ORM library for database operations
 - **PostgreSQL** - Database (via GORM PostgreSQL driver)
+- **Redis** - Caching and distributed rate limiting (optional)
 - **JWT (golang-jwt/jwt/v5)** - JSON Web Token implementation
 - **Bcrypt (golang.org/x/crypto)** - Password hashing
 - **godotenv** - Environment variable management
@@ -42,8 +44,14 @@ goapi/
 ├── routes/              # Route definitions
 │   ├── index.go            # Main route setup
 │   └── userRoutes.go       # User-specific routes
+├── cache/               # Cache abstraction layer
+│   ├── interfaces.go        # Cache interface definition
+│   ├── redis_cache.go      # Redis cache implementation
+│   ├── noop_cache.go       # No-op cache (when Redis disabled)
+│   ├── constants.go         # Cache key patterns and TTL values
+│   └── errors.go           # Cache-specific errors
 ├── initializers/        # Application initialization
-│   └── initializers.go     # Database connection and migration
+│   └── initializers.go     # Database and Redis connection, migration
 ├── docs/                # Swagger/OpenAPI documentation (generated)
 │   ├── docs.go             # Generated Swagger docs
 │   ├── swagger.json        # OpenAPI JSON specification
@@ -63,6 +71,7 @@ goapi/
 ### For Local Development:
 - Go 1.25.5 or higher
 - PostgreSQL database server (14+)
+- Redis server (optional, for caching and distributed rate limiting)
 - Git (for cloning the repository)
 
 ### For Docker:
@@ -92,7 +101,7 @@ goapi/
 
 3. **Set up environment variables**
    
-   Create a `.env` file in the root directory:
+   Create a `.env` file in the root directory (or copy from `.env.example`):
    ```env
    # Database Configuration
    DB_USER=your_db_user
@@ -106,13 +115,29 @@ goapi/
 
    # Server Port (optional, defaults to 8080)
    PORT=8080
+
+   # Redis Configuration (optional)
+   # Set REDIS_ENABLED=true to enable Redis caching
+   # If Redis is disabled, the application will use a no-op cache
+   REDIS_ENABLED=false
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+   REDIS_PASSWORD=
    ```
 
 4. **Set up the database**
    
    The application will automatically create the necessary tables using GORM AutoMigrate. Ensure your PostgreSQL database exists and is accessible with the credentials provided in `.env`.
 
-5. **Run the application**
+5. **Set up Redis (optional)**
+   
+   If you want to use Redis for caching and distributed rate limiting:
+   - Install Redis locally or use Docker: `docker run -d -p 6379:6379 redis:7-alpine`
+   - Set `REDIS_ENABLED=true` in your `.env` file
+   - Configure `REDIS_HOST` and `REDIS_PORT` if different from defaults
+   - If Redis is not available, the application will gracefully degrade to in-memory caching
+
+6. **Run the application**
    
    Using Make (recommended):
    ```bash
@@ -126,7 +151,7 @@ goapi/
 
    The server will start on `http://localhost:8080` (or the port specified in `PORT` environment variable).
 
-6. **Generate Swagger documentation** (if you modify API endpoints)
+7. **Generate Swagger documentation** (if you modify API endpoints)
    
    Using Make (recommended):
    ```bash
@@ -183,11 +208,13 @@ make docker-logs-api
 - `make docker-logs` - View all container logs (follow mode)
 - `make docker-logs-api` - View API container logs only
 - `make docker-logs-db` - View database container logs only
+- `make docker-logs-redis` - View Redis container logs only
 - `make docker-restart` - Restart Docker containers
 - `make docker-rebuild` - Rebuild and restart containers
 - `make docker-ps` - Show running Docker containers
 - `make docker-shell-api` - Open shell in API container
 - `make docker-shell-db` - Open PostgreSQL shell in database container
+- `make docker-shell-redis` - Open Redis CLI in Redis container
 
 **Documentation:**
 - `make swagger` - Generate Swagger documentation (auto-installs swag if needed)
@@ -283,6 +310,7 @@ docker-compose down -v
 
 - **`api`**: Go API application (port 8080)
 - **`db`**: PostgreSQL 16 database (port 5432)
+- **`redis`**: Redis 7 cache server (port 6379)
 
 ### Default Database Credentials (Docker)
 
@@ -516,6 +544,8 @@ type User struct {
 - **Default:** 60 requests per minute per IP
 - **Burst:** 10 requests
 - **Response (429):** `{"error": "Rate limit exceeded. Please try again later."}`
+- **Redis Support:** When Redis is enabled, rate limiting is distributed across all API instances
+- **Fallback:** If Redis is unavailable, automatically falls back to in-memory rate limiting
 
 ### Request Logging
 Logs all HTTP requests with:
@@ -539,6 +569,37 @@ Log levels:
 ### Role-Based Access Control
 - `RequireRole("admin")` middleware restricts endpoints to admin users
 - Currently used for user deletion endpoint
+
+## Caching
+
+The application supports optional Redis caching for improved performance:
+
+### Cache Features
+- **User Caching**: Caches user lookups by ID and email (15-minute TTL)
+- **Cache-Aside Pattern**: Checks cache first, falls back to database on miss
+- **Automatic Invalidation**: Cache is invalidated on user updates and deletes
+- **Distributed Rate Limiting**: Redis enables shared rate limits across multiple API instances
+- **Graceful Degradation**: If Redis is unavailable, uses no-op cache (app continues to work)
+
+### Cache Configuration
+- **User Cache TTL**: 15 minutes (configurable in `cache/constants.go`)
+- **Rate Limit Window**: 1 minute (configurable in `cache/constants.go`)
+- **Key Patterns**:
+  - User by ID: `user:id:{id}`
+  - User by Email: `user:email:{email}`
+  - Rate Limit: `ratelimit:{ip}`
+
+### Cache Invalidation Strategy
+- **On User Update**: All cached entries for the user are invalidated
+- **On User Delete**: All cached entries for the user are removed
+- **On User Create**: New user is stored in cache
+- **Email Changes**: Old email cache key is deleted when email is updated
+
+### Enabling Redis
+Set `REDIS_ENABLED=true` in your `.env` file. The application will automatically:
+- Connect to Redis on startup
+- Use Redis for caching and rate limiting
+- Fall back to in-memory if Redis connection fails
 
 ## Database
 
