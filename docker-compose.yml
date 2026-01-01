@@ -1,0 +1,51 @@
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: goapi_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: goapi
+      MYSQL_USER: goapi_user
+      MYSQL_PASSWORD: goapi_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Go API Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goapi_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_USER: goapi_user
+      DB_PASS: goapi_password
+      DB_HOST: db:3306
+      DB_NAME: goapi
+      JWT_SECRET: ${JWT_SECRET:-change_this_to_a_secure_random_string_in_production}
+      PORT: 8080
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - goapi_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  goapi_network:
+    driver: bridge
+

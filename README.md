@@ -44,20 +44,29 @@ goapi/
 │   └── userRoutes.go       # User-specific routes
 ├── initializers/        # Application initialization
 │   └── initializers.go     # Database connection and migration
-├── docs/                # Swagger/OpenAPI documentation
+├── docs/                # Swagger/OpenAPI documentation (generated)
 │   ├── docs.go             # Generated Swagger docs
 │   ├── swagger.json        # OpenAPI JSON specification
 │   └── swagger.yaml        # OpenAPI YAML specification
 ├── schema.sql          # Database schema reference
-├── main.go             # Application entry point
-├── go.mod              # Go module dependencies
-└── README.md           # This file
+├── Dockerfile          # Docker image definition
+├── docker-compose.yml  # Docker Compose configuration
+├── Makefile           # Build automation and common tasks
+├── main.go            # Application entry point
+├── go.mod             # Go module dependencies
+├── go.sum             # Go module checksums
+└── README.md          # This file
 ```
 
 ## Prerequisites
 
+### For Local Development:
 - Go 1.24.1 or higher
 - MySQL database server
+- Git (for cloning the repository)
+
+### For Docker:
+- Docker and Docker Compose installed
 - Git (for cloning the repository)
 
 ## Installation
@@ -69,8 +78,16 @@ goapi/
    ```
 
 2. **Install dependencies**
+   
+   Using Make (recommended):
+   ```bash
+   make install
+   ```
+   
+   Or manually:
    ```bash
    go mod download
+   go mod tidy
    ```
 
 3. **Set up environment variables**
@@ -95,6 +112,13 @@ goapi/
    The application will automatically create the necessary tables using GORM AutoMigrate. Ensure your MySQL database exists and is accessible with the credentials provided in `.env`.
 
 5. **Run the application**
+   
+   Using Make (recommended):
+   ```bash
+   make run
+   ```
+   
+   Or manually:
    ```bash
    go run main.go
    ```
@@ -102,6 +126,13 @@ goapi/
    The server will start on `http://localhost:8080` (or the port specified in `PORT` environment variable).
 
 6. **Generate Swagger documentation** (if you modify API endpoints)
+   
+   Using Make (recommended):
+   ```bash
+   make swagger
+   ```
+   
+   Or manually:
    ```bash
    # Install swag CLI tool
    go install github.com/swaggo/swag/cmd/swag@latest
@@ -109,6 +140,192 @@ goapi/
    # Generate Swagger docs from annotations
    swag init
    ```
+
+## Makefile Commands
+
+This project includes a Makefile with convenient commands for common tasks. Run `make help` to see all available commands.
+
+### Quick Start Commands
+
+```bash
+# Show all available commands
+make help
+
+# Full setup (install deps + generate Swagger docs)
+make setup
+
+# Run locally
+make run
+
+# Start with Docker
+make docker-up
+
+# View Docker logs
+make docker-logs-api
+```
+
+### Common Commands
+
+**Local Development:**
+- `make install` or `make deps` - Install Go dependencies
+- `make run` - Run the application locally
+- `make build` - Build the application binary
+- `make test` - Run tests
+- `make test-coverage` - Run tests with coverage report
+- `make clean` - Clean build artifacts (binary, coverage files)
+
+**Docker:**
+- `make docker-build` - Build Docker images
+- `make docker-up` - Start Docker containers in detached mode
+- `make docker-down` - Stop Docker containers
+- `make docker-down-volumes` - Stop containers and remove volumes (clears database)
+- `make docker-logs` - View all container logs (follow mode)
+- `make docker-logs-api` - View API container logs only
+- `make docker-logs-db` - View database container logs only
+- `make docker-restart` - Restart Docker containers
+- `make docker-rebuild` - Rebuild and restart containers
+- `make docker-ps` - Show running Docker containers
+- `make docker-shell-api` - Open shell in API container
+- `make docker-shell-db` - Open MySQL shell in database container
+
+**Documentation:**
+- `make swagger` - Generate Swagger documentation (auto-installs swag if needed)
+- `make swag` - Install swag CLI tool
+
+**Database:**
+- `make db-migrate` - Run database migrations (local)
+- `make db-seed` - Seed database with sample data (placeholder)
+
+**All-in-one:**
+- `make dev` - Install deps and run locally
+- `make dev-docker` - Start Docker and follow API logs
+- `make setup` - Full setup: install deps and generate Swagger docs
+- `make all` - Clean, install, generate docs, and build
+- `make prod-build` - Production build: clean and build
+- `make docker-all` - Full Docker rebuild: down, build, up
+
+## Docker Setup
+
+### Quick Start with Docker Compose
+
+The easiest way to run the entire application stack (API + MySQL) is using Docker Compose:
+
+#### Using Make (Recommended)
+
+1. **Clone the repository** (if you haven't already)
+   ```bash
+   git clone <repository-url>
+   cd goapi
+   ```
+
+2. **Set JWT Secret** (optional, but recommended)
+   
+   Create a `.env` file or set the `JWT_SECRET` environment variable:
+   ```bash
+   export JWT_SECRET=your_super_secret_jwt_key_here
+   ```
+   
+   Or create a `.env` file:
+   ```env
+   JWT_SECRET=your_super_secret_jwt_key_here
+   ```
+
+3. **Build and start services**
+   ```bash
+   make docker-up
+   ```
+   
+   Or for a complete rebuild:
+   ```bash
+   make docker-all
+   ```
+
+4. **View logs**
+   ```bash
+   make docker-logs-api
+   ```
+
+5. **Access the API**
+   - API: `http://localhost:8080`
+   - Swagger UI: `http://localhost:8080/swagger/index.html`
+   - MySQL: `localhost:3306`
+
+6. **Stop services**
+   ```bash
+   make docker-down
+   ```
+
+7. **Stop and remove volumes** (clears database data)
+   ```bash
+   make docker-down-volumes
+   ```
+
+#### Using Docker Compose Directly
+
+If you prefer using Docker Compose directly:
+
+```bash
+# Build and start
+docker-compose up -d
+
+# View logs
+docker-compose logs -f api
+
+# Stop
+docker-compose down
+
+# Stop and remove volumes
+docker-compose down -v
+```
+
+### Docker Compose Services
+
+- **`api`**: Go API application (port 8080)
+- **`db`**: MySQL 8.0 database (port 3306)
+
+### Default Database Credentials (Docker)
+
+When using Docker Compose, the database is automatically configured with:
+- **Database**: `goapi`
+- **User**: `goapi_user`
+- **Password**: `goapi_password`
+- **Root Password**: `rootpassword`
+
+These credentials are set in `docker-compose.yml` and can be customized if needed.
+
+### Docker Image Details
+
+The Dockerfile uses a multi-stage build:
+- **Builder stage**: Uses `golang:1.25-alpine` to compile the application
+- **Final stage**: Uses `alpine:latest` for a minimal production image (~10MB)
+
+The image includes:
+- Compiled Go binary
+- Swagger documentation (if generated)
+- CA certificates for HTTPS requests
+
+### Building Docker Image Manually
+
+If you want to build just the API Docker image:
+
+```bash
+# Build the image
+docker build -t goapi:latest .
+
+# Run the container
+docker run -p 8080:8080 \
+  -e DB_USER=goapi_user \
+  -e DB_PASS=goapi_password \
+  -e DB_HOST=host.docker.internal:3306 \
+  -e DB_NAME=goapi \
+  -e JWT_SECRET=your_secret_key \
+  goapi:latest
+```
+
+Or using Make:
+```bash
+make docker-build
+```
 
 ## API Documentation
 
@@ -364,17 +581,45 @@ Error responses follow this format:
 
 ### Running in Development Mode
 
+Using Make:
 ```bash
 # Set GIN_MODE to development for verbose logging
+export GIN_MODE=debug
+make run
+```
+
+Or manually:
+```bash
 export GIN_MODE=debug
 go run main.go
 ```
 
 ### Building for Production
 
+Using Make:
+```bash
+make prod-build
+# Binary will be created as 'goapi'
+./goapi
+```
+
+Or manually:
 ```bash
 go build -o goapi main.go
 ./goapi
+```
+
+### Testing
+
+Run all tests:
+```bash
+make test
+```
+
+Run tests with coverage:
+```bash
+make test-coverage
+# Opens coverage.html in your default browser
 ```
 
 ### Generating Swagger Documentation
