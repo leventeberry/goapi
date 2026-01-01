@@ -60,7 +60,8 @@ func main() {
 	router := gin.New()
 
 	// Add middleware: rate limiter, request logger, and recovery
-	router.Use(middleware.RateLimitMiddleware())
+	// Rate limiter uses Redis if available, otherwise falls back to in-memory
+	router.Use(middleware.RateLimitMiddlewareWithCache(cacheClient))
 	router.Use(middleware.RequestLogger())
 	router.Use(gin.Recovery())
 

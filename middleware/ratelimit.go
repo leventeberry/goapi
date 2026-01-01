@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/leventeberry/goapi/cache"
 )
 
 // RateLimiterConfig holds configuration for rate limiting
@@ -103,14 +105,26 @@ func min(a, b int) int {
 }
 
 var (
-	// globalRateLimiter is a singleton rate limiter instance
+	// globalRateLimiter is a singleton in-memory rate limiter instance
 	globalRateLimiter *RateLimiter
-	rateLimiterOnce   sync.Once
+	// globalRedisRateLimiter is a Redis-based rate limiter instance
+	globalRedisRateLimiter *RedisRateLimiter
+	rateLimiterOnce         sync.Once
+	useRedis                bool
 )
 
 // RateLimitMiddleware returns a middleware that rate limits requests per IP
 // Default: 60 requests per minute with burst of 10
+// Uses in-memory rate limiting by default
 func RateLimitMiddleware() gin.HandlerFunc {
+	return RateLimitMiddlewareWithCache(nil)
+}
+
+// RateLimitMiddlewareWithCache returns a middleware that rate limits requests per IP
+// If cacheClient is provided and not a no-op cache, uses Redis-based rate limiting
+// Otherwise falls back to in-memory rate limiting
+// Default: 60 requests per minute with burst of 10
+func RateLimitMiddlewareWithCache(cacheClient cache.Cache) gin.HandlerFunc {
 	// Initialize rate limiter once (singleton pattern)
 	rateLimiterOnce.Do(func() {
 		// Default configuration: 60 requests per minute, burst of 10
@@ -118,13 +132,57 @@ func RateLimitMiddleware() gin.HandlerFunc {
 			RequestsPerMinute: 60,
 			BurstSize:         10,
 		}
-		globalRateLimiter = NewRateLimiter(config)
+
+		// Check if we should use Redis
+		// Use Redis if cache is provided and it's actually working (not no-op)
+		if cacheClient != nil {
+			// Test if cache is actually working by trying to set/get a test value
+			// No-op cache will return cache miss, Redis will work
+			ctx := context.Background()
+			testKey := "ratelimit:init:test"
+			testValue := "test"
+			
+			// Try to set and get - if this works, we have a real cache
+			err := cacheClient.Set(ctx, testKey, testValue, time.Second)
+			if err == nil {
+				val, err := cacheClient.Get(ctx, testKey)
+				if err == nil && val == testValue {
+					// Cache is working (Redis is available), use Redis rate limiter
+					globalRedisRateLimiter = NewRedisRateLimiter(cacheClient, config)
+					useRedis = true
+					// Clean up test key
+					cacheClient.Delete(ctx, testKey)
+				} else {
+					// Cache not working (no-op cache), use in-memory
+					globalRateLimiter = NewRateLimiter(config)
+					useRedis = false
+				}
+			} else {
+				// Cache not working, use in-memory
+				globalRateLimiter = NewRateLimiter(config)
+				useRedis = false
+			}
+		} else {
+			// No cache provided, use in-memory
+			globalRateLimiter = NewRateLimiter(config)
+			useRedis = false
+		}
 	})
 
 	return func(c *gin.Context) {
 		clientIP := c.ClientIP()
+		ctx := context.Background()
 
-		if !globalRateLimiter.allow(clientIP) {
+		var allowed bool
+		if useRedis && globalRedisRateLimiter != nil {
+			// Use Redis-based rate limiting
+			allowed = globalRedisRateLimiter.allow(ctx, clientIP)
+		} else {
+			// Use in-memory rate limiting
+			allowed = globalRateLimiter.allow(clientIP)
+		}
+
+		if !allowed {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error": "Rate limit exceeded. Please try again later.",
 			})
