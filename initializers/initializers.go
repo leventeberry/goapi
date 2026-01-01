@@ -1,6 +1,7 @@
 package initializers
 
 import (
+    "context"
     "fmt"
     "log"
     "os"
@@ -8,10 +9,14 @@ import (
     "gorm.io/driver/postgres"
     "gorm.io/gorm"
     "github.com/leventeberry/goapi/models"
+    "github.com/redis/go-redis/v9"
 )
 
 // DB is the global database connection
 var DB *gorm.DB
+
+// RedisClient is the global Redis client connection
+var RedisClient *redis.Client
 
 // Init loads environment variables, connects to the database, and runs migrations.
 func Init() {
@@ -19,6 +24,7 @@ func Init() {
     validateEnv()
     connectDB()
     migrateDB()
+    connectRedis()
 }
 
 // loadEnv reads .env file into environment, if present
@@ -93,4 +99,47 @@ func migrateDB() {
         log.Fatalf("failed to run database migrations: %v", err)
     }
     log.Println("Database migrations completed")
+}
+
+// connectRedis opens a Redis connection if Redis is enabled
+// Redis configuration is optional - if REDIS_ENABLED is not "true", Redis will not be connected
+func connectRedis() {
+    enabled := os.Getenv("REDIS_ENABLED")
+    if enabled != "true" {
+        log.Println("Redis is disabled (REDIS_ENABLED != true)")
+        return
+    }
+
+    host := os.Getenv("REDIS_HOST")
+    if host == "" {
+        host = "localhost"
+    }
+
+    port := os.Getenv("REDIS_PORT")
+    if port == "" {
+        port = "6379"
+    }
+
+    password := os.Getenv("REDIS_PASSWORD")
+    // Password is optional, empty string means no password
+
+    addr := fmt.Sprintf("%s:%s", host, port)
+    
+    RedisClient = redis.NewClient(&redis.Options{
+        Addr:     addr,
+        Password: password,
+        DB:       0, // Default DB
+    })
+
+    // Test connection
+    ctx := context.Background()
+    _, err := RedisClient.Ping(ctx).Result()
+    if err != nil {
+        log.Printf("Warning: Failed to connect to Redis at %s: %v", addr, err)
+        log.Println("Application will continue without Redis caching")
+        RedisClient = nil
+        return
+    }
+
+    log.Printf("Redis connection established at %s", addr)
 }

@@ -103,5 +103,5 @@ func SignupUser(authService services.AuthService) gin.HandlerFunc {
 
 		ReturnSuccessData(c, user, token)
 	}
->>>>>>> main
+
 }
