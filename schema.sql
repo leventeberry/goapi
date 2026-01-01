@@ -6,11 +6,11 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     phone_number VARCHAR(20) DEFAULT '9999999999',
-    role ENUM('customer', 'admin', 'bartender') DEFAULT 'customer',
+    role ENUM('user', 'admin') DEFAULT 'user',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO users (first_name, last_name, email, password_hash, role)
 VALUES ('John', 'Doe', 'johndoe@example.com', 'password', 'admin'),
-       ('Jane', 'Doe', 'janedoe@example.com', 'password', 'customer')
+       ('Jane', 'Doe', 'janedoe@example.com', 'password', 'user')
