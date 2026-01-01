@@ -66,13 +66,13 @@ func GetUsers(userService services.UserService) gin.HandlerFunc {
 func GetUser(userService services.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		idParam := c.Param("id")
-		id, err := strconv.Atoi(idParam)
-		if err != nil {
+		id, err := strconv.ParseInt(idParam, 10, 64)
+		if err != nil || id < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 			return
 		}
 
-		user, err := userService.GetUserByID(c.Request.Context(), id)
+		user, err := userService.GetUserByID(c.Request.Context(), int(id))
 		if err != nil {
 			handleServiceError(c, err)
 			return
@@ -142,8 +142,8 @@ func CreateUser(userService services.UserService) gin.HandlerFunc {
 func UpdateUser(userService services.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		idParam := c.Param("id")
-		id, err := strconv.Atoi(idParam)
-		if err != nil {
+		id, err := strconv.ParseInt(idParam, 10, 64)
+		if err != nil || id < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 			return
 		}
@@ -163,7 +163,7 @@ func UpdateUser(userService services.UserService) gin.HandlerFunc {
 			Role:      input.Role,
 		}
 
-		user, err := userService.UpdateUser(c.Request.Context(), id, updateInput)
+		user, err := userService.UpdateUser(c.Request.Context(), int(id), updateInput)
 		if err != nil {
 			handleServiceError(c, err)
 			return
@@ -191,13 +191,13 @@ func UpdateUser(userService services.UserService) gin.HandlerFunc {
 func DeleteUser(userService services.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		idParam := c.Param("id")
-		id, err := strconv.Atoi(idParam)
-		if err != nil {
+		id, err := strconv.ParseInt(idParam, 10, 64)
+		if err != nil || id < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 			return
 		}
 
-		err = userService.DeleteUser(c.Request.Context(), id)
+		err = userService.DeleteUser(c.Request.Context(), int(id))
 		if err != nil {
 			handleServiceError(c, err)
 			return

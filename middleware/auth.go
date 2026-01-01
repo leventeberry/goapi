@@ -107,14 +107,14 @@ func RequireRole(userRepo repositories.UserRepository, allowedRoles ...string) g
         }
 
         // Convert userID string to int
-        userID, err := strconv.Atoi(userIDStr.(string))
-        if err != nil {
+        userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
+        if err != nil || userID < 1 {
             c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
             return
         }
 
         // Query database for user's role using repository
-        user, err := userRepo.FindByID(userID)
+        user, err := userRepo.FindByID(int(userID))
         if err != nil {
             c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "User not found"})
             return
