@@ -72,6 +72,28 @@ func (r *userRepository) FindAll() ([]models.User, error) {
 	return users, nil
 }
 
+// FindAllWithPagination retrieves users with pagination support
+func (r *userRepository) FindAllWithPagination(page, pageSize int) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	// Count total records
+	if err := r.db.Model(&models.User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Calculate offset
+	offset := (page - 1) * pageSize
+
+	// Retrieve paginated users
+	err := r.db.Offset(offset).Limit(pageSize).Find(&users).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
+}
+
 // Update updates an existing user in the database
 // Uses Updates() instead of Save() to only update changed fields
 func (r *userRepository) Update(user *models.User) error {

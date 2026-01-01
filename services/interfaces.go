@@ -13,6 +13,7 @@ type UserService interface {
 	GetUserByID(ctx context.Context, id int) (*models.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
 	GetAllUsers(ctx context.Context) ([]models.User, error)
+	GetAllUsersPaginated(ctx context.Context, params *PaginationParams) ([]models.User, int64, error)
 	UpdateUser(ctx context.Context, id int, input *UpdateUserInput) (*models.User, error)
 	DeleteUser(ctx context.Context, id int) error
 	ValidateRole(role string) bool

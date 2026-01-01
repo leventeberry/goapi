@@ -30,3 +30,9 @@ type RegisterInput struct {
 	Role      string
 }
 
+// PaginationParams holds pagination parameters
+type PaginationParams struct {
+	Page     int
+	PageSize int
+}
+

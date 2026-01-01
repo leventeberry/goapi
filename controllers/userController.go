@@ -27,19 +27,80 @@ type UpdateUserInput struct {
 	Role      *string `json:"role" binding:"omitempty,oneof=user admin"`
 }
 
-// GetUsers retrieves all users
+// GetUsers retrieves all users with optional pagination
 // @Summary      Get all users
-// @Description  Get a list of all users (requires authentication)
+// @Description  Get a list of all users with optional pagination (requires authentication). Query parameters: page (default: 1), page_size (default: 10, max: 100)
 // @Tags         users
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   models.User  "List of users"
-// @Failure      401  {object}  map[string]string  "Unauthorized"
-// @Failure      500  {object}  map[string]string  "Server error"
+// @Param        page       query     int     false  "Page number (default: 1)"
+// @Param        page_size  query     int     false  "Items per page (default: 10, max: 100)"
+// @Success      200        {object}  map[string]interface{}  "Paginated users response"
+// @Failure      400        {object}  map[string]string  "Invalid pagination parameters"
+// @Failure      401        {object}  map[string]string  "Unauthorized"
+// @Failure      500        {object}  map[string]string  "Server error"
 // @Router       /users [get]
 func GetUsers(userService services.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Check if pagination parameters are provided
+		pageParam := c.Query("page")
+		pageSizeParam := c.Query("page_size")
+
+		if pageParam != "" || pageSizeParam != "" {
+			// Use pagination
+			page := 1
+			pageSize := 10
+
+			if pageParam != "" {
+				parsedPage, err := strconv.Atoi(pageParam)
+				if err != nil || parsedPage < 1 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page parameter"})
+					return
+				}
+				page = parsedPage
+			}
+
+			if pageSizeParam != "" {
+				parsedPageSize, err := strconv.Atoi(pageSizeParam)
+				if err != nil || parsedPageSize < 1 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page_size parameter"})
+					return
+				}
+				pageSize = parsedPageSize
+			}
+
+			params := &services.PaginationParams{
+				Page:     page,
+				PageSize: pageSize,
+			}
+
+			users, total, err := userService.GetAllUsersPaginated(c.Request.Context(), params)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users"})
+				return
+			}
+
+			// Apply capping logic here to match service behavior
+			actualPageSize := pageSize
+			if actualPageSize < 1 {
+				actualPageSize = 10
+			}
+			if actualPageSize > 100 {
+				actualPageSize = 100
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"data":        users,
+				"total":       total,
+				"page":        page,
+				"page_size":   actualPageSize,
+				"total_pages": (int(total) + actualPageSize - 1) / actualPageSize, // Ceiling division
+			})
+			return
+		}
+
+		// No pagination parameters - return all users (backward compatibility)
 		users, err := userService.GetAllUsers(c.Request.Context())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users"})

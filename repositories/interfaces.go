@@ -8,6 +8,7 @@ type UserRepository interface {
 	FindByID(id int) (*models.User, error)
 	FindByEmail(email string) (*models.User, error)
 	FindAll() ([]models.User, error)
+	FindAllWithPagination(page, pageSize int) ([]models.User, int64, error)
 	Update(user *models.User) error
 	Delete(id int) error
 	ExistsByEmail(email string) (bool, error)

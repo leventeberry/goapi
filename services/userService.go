@@ -158,6 +158,25 @@ func (s *userService) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	return s.userRepo.FindAll()
 }
 
+// GetAllUsersPaginated retrieves users with pagination support
+func (s *userService) GetAllUsersPaginated(ctx context.Context, params *PaginationParams) ([]models.User, int64, error) {
+	// Validate and set defaults
+	page := params.Page
+	if page < 1 {
+		page = 1
+	}
+
+	pageSize := params.PageSize
+	if pageSize < 1 {
+		pageSize = 10 // Default page size
+	}
+	if pageSize > 100 {
+		pageSize = 100 // Max page size to prevent abuse
+	}
+
+	return s.userRepo.FindAllWithPagination(page, pageSize)
+}
+
 // UpdateUser updates a user with business logic validation
 func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserInput) (*models.User, error) {
 	// Get existing user
