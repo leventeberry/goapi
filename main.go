@@ -3,9 +3,10 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gin-gonic/gin"
-	"github.com/leventeberry/goapi/cache"
 	"github.com/leventeberry/goapi/container"
 	"github.com/leventeberry/goapi/docs"
 	"github.com/leventeberry/goapi/initializers"
@@ -45,12 +46,8 @@ func main() {
 	initializers.Init()
 
 	// Initialize cache client (Redis or no-op)
-	var cacheClient cache.Cache
-	if initializers.RedisClient != nil {
-		cacheClient = cache.NewRedisCache(initializers.RedisClient)
-	} else {
-		cacheClient = cache.NewNoOpCache()
-	}
+	// Uses helper function from initializers to centralize cache creation logic
+	cacheClient := initializers.GetCacheClient()
 
 	// Create dependency injection container using Factory Pattern
 	// This initializes all repositories, services, and their dependencies
@@ -76,7 +73,27 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("failed to start server: %v", err)
-	}
+
+	// Setup graceful shutdown
+	// Listen for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		if err := router.Run(":" + port); err != nil {
+			log.Fatalf("failed to start server: %v", err)
+		}
+	}()
+
+	log.Printf("Server is running on port %s", port)
+
+	// Wait for interrupt signal to gracefully shutdown the server
+	<-quit
+	log.Println("Shutting down server...")
+
+	// Cleanup: close Redis connection if it exists
+	initializers.CloseRedis()
+
+	log.Println("Server exited")
 }

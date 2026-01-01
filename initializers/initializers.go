@@ -8,6 +8,7 @@ import (
     "github.com/joho/godotenv"
     "gorm.io/driver/postgres"
     "gorm.io/gorm"
+    "github.com/leventeberry/goapi/cache"
     "github.com/leventeberry/goapi/models"
     "github.com/redis/go-redis/v9"
 )
@@ -142,4 +143,26 @@ func connectRedis() {
     }
 
     log.Printf("Redis connection established at %s", addr)
+}
+
+// GetCacheClient returns a cache client instance
+// Returns Redis cache if Redis is available, otherwise returns no-op cache
+// This centralizes cache client creation logic
+func GetCacheClient() cache.Cache {
+    if RedisClient != nil {
+        return cache.NewRedisCache(RedisClient)
+    }
+    return cache.NewNoOpCache()
+}
+
+// CloseRedis closes the Redis connection if it exists
+// Should be called on application shutdown for graceful cleanup
+func CloseRedis() {
+    if RedisClient != nil {
+        if err := RedisClient.Close(); err != nil {
+            log.Printf("Error closing Redis connection: %v", err)
+        } else {
+            log.Println("Redis connection closed")
+        }
+    }
 }
