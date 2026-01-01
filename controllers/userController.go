@@ -32,7 +32,7 @@ func GetUser(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
         // 1. Parse & validate the ID
         idParam := c.Param("id")
-        id, err := strconv.ParseUint(idParam, 10, 64)
+        id, err := strconv.Atoi(idParam)
         if err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
             return
@@ -130,7 +130,7 @@ func UpdateUser(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
         // 1. Parse & validate the ID
         idParam := c.Param("id")
-        id, err := strconv.ParseUint(idParam, 10, 64)
+        id, err := strconv.Atoi(idParam)
         if err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
             return
@@ -206,7 +206,7 @@ func DeleteUser(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
         // 1. Parse & validate the ID
         idParam := c.Param("id")
-        id, err := strconv.ParseUint(idParam, 10, 64)
+        id, err := strconv.Atoi(idParam)
         if err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
             return
