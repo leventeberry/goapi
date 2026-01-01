@@ -17,12 +17,12 @@ type RequestUserInput struct {
 
 // SignupUserInput holds registration data
 type SignupUserInput struct {
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
-	PhoneNum  string `json:"phone_number" binding:"required"`
-	Role      string `json:"role" binding:"required"`
+	FirstName string `json:"first_name" binding:"required,min=1,max=50"`
+	LastName  string `json:"last_name" binding:"required,min=1,max=50"`
+	Email     string `json:"email" binding:"required,email,max=255"`
+	Password  string `json:"password" binding:"required,min=8,max=128"`
+	PhoneNum  string `json:"phone_number" binding:"omitempty,max=20"`
+	Role      string `json:"role" binding:"omitempty,oneof=user admin"`
 }
 
 // ReturnSuccessData returns standardized success response with token and user

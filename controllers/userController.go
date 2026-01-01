@@ -9,22 +9,22 @@ import (
 )
 // CreateUserInput holds the data for creating a new user
 type CreateUserInput struct {
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
-	PhoneNum  string `json:"phone_number"`
-	Role      string `json:"role"`
+	FirstName string `json:"first_name" binding:"required,min=1,max=50"`
+	LastName  string `json:"last_name" binding:"required,min=1,max=50"`
+	Email     string `json:"email" binding:"required,email,max=255"`
+	Password  string `json:"password" binding:"required,min=8,max=128"`
+	PhoneNum  string `json:"phone_number" binding:"omitempty,max=20"`
+	Role      string `json:"role" binding:"omitempty,oneof=user admin"`
 }
 
 // UpdateUserInput holds the data for updating a user
 type UpdateUserInput struct {
 	FirstName *string `json:"first_name" binding:"omitempty,min=1,max=50"`
 	LastName  *string `json:"last_name" binding:"omitempty,min=1,max=50"`
-	Email     *string `json:"email" binding:"omitempty,email"`
-	Password  *string `json:"password" binding:"omitempty,min=8"`
+	Email     *string `json:"email" binding:"omitempty,email,max=255"`
+	Password  *string `json:"password" binding:"omitempty,min=8,max=128"`
 	PhoneNum  *string `json:"phone_number" binding:"omitempty,max=20"`
-	Role      *string `json:"role" binding:"omitempty"`
+	Role      *string `json:"role" binding:"omitempty,oneof=user admin"`
 }
 
 // GetUsers retrieves all users
