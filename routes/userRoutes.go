@@ -7,11 +7,12 @@ import (
 	"github.com/leventeberry/goapi/middleware"
 )
 
-// SetupUserRoutes registers all user-related routes on the provided Gin engine
+// SetupUserRoutes registers all user-related routes on the provided Gin router group
 // All user routes are protected by authentication middleware
 // Admin-only routes use RequireRole middleware for role-based access control
 // Uses dependency injection container for all dependencies
-func SetupUserRoutes(router *gin.Engine, c *container.Container) {
+// Accepts a *gin.RouterGroup to support versioned routes (e.g., /api/v1)
+func SetupUserRoutes(router *gin.RouterGroup, c *container.Container) {
 	// User routes group with authentication middleware
 	userGroup := router.Group("/users")
 	userGroup.Use(middleware.AuthMiddleware())

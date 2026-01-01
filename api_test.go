@@ -122,7 +122,7 @@ func TestRegisterUser(t *testing.T) {
 		"role":         "user",
 	}
 
-	w, err := makeRequest("POST", "/register", registerData, "")
+	w, err := makeRequest("POST", "/api/v1/register", registerData, "")
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestRegisterAdmin(t *testing.T) {
 		"role":         "admin",
 	}
 
-	w, err := makeRequest("POST", "/register", adminData, "")
+	w, err := makeRequest("POST", "/api/v1/register", adminData, "")
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestLogin(t *testing.T) {
 		"password": "password123",
 	}
 
-	w, err := makeRequest("POST", "/login", loginData, "")
+	w, err := makeRequest("POST", "/api/v1/login", loginData, "")
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestLoginInvalidCredentials(t *testing.T) {
 		"password": "WrongPassword123!",
 	}
 
-	w, err := makeRequest("POST", "/login", loginData, "")
+	w, err := makeRequest("POST", "/api/v1/login", loginData, "")
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestGetAllUsers(t *testing.T) {
 		t.Skip("User token not available")
 	}
 
-	w, err := makeRequest("GET", "/users", nil, userToken)
+	w, err := makeRequest("GET", "/api/v1/users", nil, userToken)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestGetAllUsers(t *testing.T) {
 
 // Test 7: Get All Users (Unauthenticated)
 func TestGetAllUsersUnauthenticated(t *testing.T) {
-	w, err := makeRequest("GET", "/users", nil, "")
+	w, err := makeRequest("GET", "/api/v1/users", nil, "")
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestGetUserByID(t *testing.T) {
 		t.Skip("User token or ID not available")
 	}
 
-	url := fmt.Sprintf("/users/%d", userID)
+	url := fmt.Sprintf("/api/v1/users/%d", userID)
 	w, err := makeRequest("GET", url, nil, userToken)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
@@ -306,7 +306,7 @@ func TestGetNonExistentUser(t *testing.T) {
 		t.Skip("User token not available")
 	}
 
-	w, err := makeRequest("GET", "/users/99999", nil, userToken)
+	w, err := makeRequest("GET", "/api/v1/users/99999", nil, userToken)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestCreateUser(t *testing.T) {
 		"role":         "user",
 	}
 
-	w, err := makeRequest("POST", "/users", createData, userToken)
+	w, err := makeRequest("POST", "/api/v1/users", createData, userToken)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -366,7 +366,7 @@ func TestUpdateUser(t *testing.T) {
 		"last_name":  "Doe Updated",
 	}
 
-	url := fmt.Sprintf("/users/%d", userID)
+	url := fmt.Sprintf("/api/v1/users/%d", userID)
 	w, err := makeRequest("PUT", url, updateData, userToken)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
@@ -405,7 +405,7 @@ func TestDeleteUserAsAdmin(t *testing.T) {
 		"role":         "user",
 	}
 
-	w, err := makeRequest("POST", "/users", createData, adminToken)
+	w, err := makeRequest("POST", "/api/v1/users", createData, adminToken)
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestDeleteUserAsAdmin(t *testing.T) {
 	}
 
 	deleteID := int(user["user_id"].(float64))
-	url := fmt.Sprintf("/users/%d", deleteID)
+	url := fmt.Sprintf("/api/v1/users/%d", deleteID)
 
 	w, err = makeRequest("DELETE", url, nil, adminToken)
 	if err != nil {
@@ -441,7 +441,7 @@ func TestDeleteUserAsRegularUser(t *testing.T) {
 		t.Skip("User token or ID not available")
 	}
 
-	url := fmt.Sprintf("/users/%d", userID)
+	url := fmt.Sprintf("/api/v1/users/%d", userID)
 	w, err := makeRequest("DELETE", url, nil, userToken)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
@@ -465,7 +465,7 @@ func TestRegisterDuplicateEmail(t *testing.T) {
 		"role":         "user",
 	}
 
-	w, err := makeRequest("POST", "/register", registerData, "")
+	w, err := makeRequest("POST", "/api/v1/register", registerData, "")
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -488,7 +488,7 @@ func TestRegisterInvalidRole(t *testing.T) {
 		"role":         "invalid_role",
 	}
 
-	w, err := makeRequest("POST", "/register", registerData, "")
+	w, err := makeRequest("POST", "/api/v1/register", registerData, "")
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -508,7 +508,7 @@ func TestGetUsersPaginated(t *testing.T) {
 		"password": "password123",
 	}
 
-	wLogin, err := makeRequest("POST", "/login", loginData, "")
+	wLogin, err := makeRequest("POST", "/api/v1/login", loginData, "")
 	if err != nil {
 		t.Fatalf("Failed to make login request: %v", err)
 	}
@@ -524,7 +524,7 @@ func TestGetUsersPaginated(t *testing.T) {
 			"role":         "user",
 		}
 
-		wReg, err := makeRequest("POST", "/register", registerData, "")
+		wReg, err := makeRequest("POST", "/api/v1/register", registerData, "")
 		if err != nil {
 			t.Fatalf("Failed to make register request: %v", err)
 		}
@@ -534,7 +534,7 @@ func TestGetUsersPaginated(t *testing.T) {
 		}
 
 		// Try login again
-		wLogin, err = makeRequest("POST", "/login", loginData, "")
+		wLogin, err = makeRequest("POST", "/api/v1/login", loginData, "")
 		if err != nil {
 			t.Fatalf("Failed to make login request after registration: %v", err)
 		}
@@ -573,11 +573,11 @@ func TestGetUsersPaginated(t *testing.T) {
 
 	// Create test users (skip errors if they already exist)
 	for _, userData := range testUsers {
-		makeRequest("POST", "/users", userData, testToken)
+		makeRequest("POST", "/api/v1/users", userData, testToken)
 	}
 
 	// Test 1: Pagination with page=1 and page_size=2
-	w, err := makeRequest("GET", "/users?page=1&page_size=2", nil, testToken)
+	w, err := makeRequest("GET", "/api/v1/users?page=1&page_size=2", nil, testToken)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
@@ -641,7 +641,7 @@ func TestGetUsersPaginated(t *testing.T) {
 	}
 
 	// Test 2: Test page 2
-	w2, err := makeRequest("GET", "/users?page=2&page_size=2", nil, testToken)
+	w2, err := makeRequest("GET", "/api/v1/users?page=2&page_size=2", nil, testToken)
 	if err != nil {
 		t.Fatalf("Failed to make request for page 2: %v", err)
 	}
@@ -673,7 +673,7 @@ func TestGetUsersPaginated(t *testing.T) {
 	}
 
 	// Test 3: Test default pagination (page=1, page_size should default to 10)
-	w3, err := makeRequest("GET", "/users?page=1", nil, testToken)
+	w3, err := makeRequest("GET", "/api/v1/users?page=1", nil, testToken)
 	if err != nil {
 		t.Fatalf("Failed to make request with default page_size: %v", err)
 	}
@@ -694,7 +694,7 @@ func TestGetUsersPaginated(t *testing.T) {
 	}
 
 	// Test 4: Test invalid page parameter
-	w4, err := makeRequest("GET", "/users?page=0&page_size=2", nil, testToken)
+	w4, err := makeRequest("GET", "/api/v1/users?page=0&page_size=2", nil, testToken)
 	if err != nil {
 		t.Fatalf("Failed to make request with invalid page: %v", err)
 	}
@@ -704,7 +704,7 @@ func TestGetUsersPaginated(t *testing.T) {
 	}
 
 	// Test 5: Test max page_size limit (should cap at 100)
-	w5, err := makeRequest("GET", "/users?page=1&page_size=200", nil, testToken)
+	w5, err := makeRequest("GET", "/api/v1/users?page=1&page_size=200", nil, testToken)
 	if err != nil {
 		t.Fatalf("Failed to make request with large page_size: %v", err)
 	}

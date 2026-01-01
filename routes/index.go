@@ -39,12 +39,40 @@ func SetupRoutes(router *gin.Engine, c *container.Container) {
 	// @Router       /health [get]
 	router.GET("/health", healthCheckHandler(c))
 
-	// Authentication routes
-	router.POST("/login", controllers.LoginUser(c.AuthService))
-	router.POST("/register", controllers.SignupUser(c.AuthService))
+	// API v1 routes group
+	// All API endpoints are versioned under /api/v1 for backward compatibility
+	v1 := router.Group("/api/v1")
+	{
+		// Authentication routes
+		// @Summary      Login user
+		// @Description  Authenticate a user with email and password, returns JWT token
+		// @Tags         authentication
+		// @Accept       json
+		// @Produce      json
+		// @Param        credentials  body      RequestUserInput  true  "Login credentials"
+		// @Success      200          {object}  map[string]interface{}  "Login successful"
+		// @Failure      400          {object}  map[string]string  "Invalid request"
+		// @Failure      401          {object}  map[string]string  "Invalid credentials"
+		// @Failure      500          {object}  map[string]string  "Server error"
+		// @Router       /api/v1/login [post]
+		v1.POST("/login", controllers.LoginUser(c.AuthService))
 
-	// User routes setup
-	SetupUserRoutes(router, c)
+		// @Summary      Register new user
+		// @Description  Create a new user account and receive JWT token
+		// @Tags         authentication
+		// @Accept       json
+		// @Produce      json
+		// @Param        user  body      SignupUserInput  true  "User registration data"
+		// @Success      200   {object}  map[string]interface{}  "Registration successful"
+		// @Failure      400   {object}  map[string]string  "Invalid request"
+		// @Failure      409   {object}  map[string]string  "Email already registered"
+		// @Failure      500   {object}  map[string]string  "Server error"
+		// @Router       /api/v1/register [post]
+		v1.POST("/register", controllers.SignupUser(c.AuthService))
+
+		// User routes setup
+		SetupUserRoutes(v1, c)
+	}
 }
 
 // healthCheckHandler returns a handler function for the health check endpoint
