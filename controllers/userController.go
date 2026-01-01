@@ -40,7 +40,7 @@ type UpdateUserInput struct {
 // @Router       /users [get]
 func GetUsers(userService services.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		users, err := userService.GetAllUsers()
+		users, err := userService.GetAllUsers(c.Request.Context())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve users"})
 			return
@@ -72,7 +72,7 @@ func GetUser(userService services.UserService) gin.HandlerFunc {
 			return
 		}
 
-		user, err := userService.GetUserByID(id)
+		user, err := userService.GetUserByID(c.Request.Context(), id)
 		if err != nil {
 			handleServiceError(c, err)
 			return
@@ -113,7 +113,7 @@ func CreateUser(userService services.UserService) gin.HandlerFunc {
 			Role:      input.Role,
 		}
 
-		user, err := userService.CreateUser(createInput)
+		user, err := userService.CreateUser(c.Request.Context(), createInput)
 		if err != nil {
 			handleServiceError(c, err)
 			return
@@ -163,7 +163,7 @@ func UpdateUser(userService services.UserService) gin.HandlerFunc {
 			Role:      input.Role,
 		}
 
-		user, err := userService.UpdateUser(id, updateInput)
+		user, err := userService.UpdateUser(c.Request.Context(), id, updateInput)
 		if err != nil {
 			handleServiceError(c, err)
 			return
@@ -197,7 +197,7 @@ func DeleteUser(userService services.UserService) gin.HandlerFunc {
 			return
 		}
 
-		err = userService.DeleteUser(id)
+		err = userService.DeleteUser(c.Request.Context(), id)
 		if err != nil {
 			handleServiceError(c, err)
 			return

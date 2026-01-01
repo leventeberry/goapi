@@ -25,7 +25,7 @@ func NewUserService(userRepo repositories.UserRepository, cacheClient cache.Cach
 }
 
 // CreateUser creates a new user with business logic validation
-func (s *userService) CreateUser(input *CreateUserInput) (*models.User, error) {
+func (s *userService) CreateUser(ctx context.Context, input *CreateUserInput) (*models.User, error) {
 	// Validate role
 	if input.Role != "" && !s.ValidateRole(input.Role) {
 		return nil, ErrInvalidRole
@@ -68,7 +68,6 @@ func (s *userService) CreateUser(input *CreateUserInput) (*models.User, error) {
 	}
 
 	// Store in cache after successful creation
-	ctx := context.Background()
 	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
 		// Log error but don't fail the request - cache is best effort
 		// In production, you might want to log this
@@ -84,9 +83,7 @@ func (s *userService) CreateUser(input *CreateUserInput) (*models.User, error) {
 // 1. Check cache first
 // 2. If cache miss, query database
 // 3. Store result in cache for future requests
-func (s *userService) GetUserByID(id int) (*models.User, error) {
-	ctx := context.Background()
-	
+func (s *userService) GetUserByID(ctx context.Context, id int) (*models.User, error) {
 	// Try to get from cache first
 	user, err := s.cache.GetUserByID(ctx, id)
 	if err == nil {
@@ -123,9 +120,7 @@ func (s *userService) GetUserByID(id int) (*models.User, error) {
 // 1. Check cache first
 // 2. If cache miss, query database
 // 3. Store result in cache for future requests
-func (s *userService) GetUserByEmail(email string) (*models.User, error) {
-	ctx := context.Background()
-	
+func (s *userService) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	// Try to get from cache first
 	user, err := s.cache.GetUserByEmail(ctx, email)
 	if err == nil {
@@ -159,14 +154,12 @@ func (s *userService) GetUserByEmail(email string) (*models.User, error) {
 }
 
 // GetAllUsers retrieves all users
-func (s *userService) GetAllUsers() ([]models.User, error) {
+func (s *userService) GetAllUsers(ctx context.Context) ([]models.User, error) {
 	return s.userRepo.FindAll()
 }
 
 // UpdateUser updates a user with business logic validation
-func (s *userService) UpdateUser(id int, input *UpdateUserInput) (*models.User, error) {
-	ctx := context.Background()
-	
+func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserInput) (*models.User, error) {
 	// Get existing user
 	user, err := s.userRepo.FindByID(id)
 	if err != nil {
@@ -254,9 +247,7 @@ func (s *userService) UpdateUser(id int, input *UpdateUserInput) (*models.User, 
 }
 
 // DeleteUser deletes a user
-func (s *userService) DeleteUser(id int) error {
-	ctx := context.Background()
-	
+func (s *userService) DeleteUser(ctx context.Context, id int) error {
 	// Get user first to get email for cache invalidation
 	user, err := s.userRepo.FindByID(id)
 	if err != nil {

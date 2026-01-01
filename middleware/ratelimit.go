@@ -171,7 +171,7 @@ func RateLimitMiddlewareWithCache(cacheClient cache.Cache) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		clientIP := c.ClientIP()
-		ctx := context.Background()
+		ctx := c.Request.Context()
 
 		var allowed bool
 		if useRedis && globalRedisRateLimiter != nil {
