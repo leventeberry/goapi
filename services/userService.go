@@ -1,7 +1,9 @@
 package services
 
 import (
+	"context"
 	"errors"
+	"github.com/leventeberry/goapi/cache"
 	"github.com/leventeberry/goapi/middleware"
 	"github.com/leventeberry/goapi/models"
 	"github.com/leventeberry/goapi/repositories"
@@ -10,13 +12,15 @@ import (
 // userService implements UserService interface
 type userService struct {
 	userRepo repositories.UserRepository
+	cache    cache.Cache
 }
 
 // NewUserService creates a new instance of UserService
 // Factory function for creating user service
-func NewUserService(userRepo repositories.UserRepository) UserService {
+func NewUserService(userRepo repositories.UserRepository, cacheClient cache.Cache) UserService {
 	return &userService{
 		userRepo: userRepo,
+		cache:    cacheClient,
 	}
 }
 
@@ -63,24 +67,95 @@ func (s *userService) CreateUser(input *CreateUserInput) (*models.User, error) {
 		return nil, err
 	}
 
+	// Store in cache after successful creation
+	ctx := context.Background()
+	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+		// In production, you might want to log this
+	}
+	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+	}
+
 	return user, nil
 }
 
-// GetUserByID retrieves a user by ID
+// GetUserByID retrieves a user by ID using cache-aside pattern
+// 1. Check cache first
+// 2. If cache miss, query database
+// 3. Store result in cache for future requests
 func (s *userService) GetUserByID(id int) (*models.User, error) {
-	user, err := s.userRepo.FindByID(id)
+	ctx := context.Background()
+	
+	// Try to get from cache first
+	user, err := s.cache.GetUserByID(ctx, id)
+	if err == nil {
+		// Cache hit - return cached user
+		return user, nil
+	}
+	
+	// Cache miss or error - fallback to database
+	if !errors.Is(err, cache.ErrCacheMiss) {
+		// Log cache error but continue to database
+		// In production, you might want to log this
+	}
+	
+	user, err = s.userRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, repositories.ErrUserNotFound) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err
 	}
+	
+	// Store in cache for future requests (best effort - don't fail on cache error)
+	if err := s.cache.SetUserByID(ctx, id, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+	}
+	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+	}
+	
 	return user, nil
 }
 
-// GetUserByEmail retrieves a user by email
+// GetUserByEmail retrieves a user by email using cache-aside pattern
+// 1. Check cache first
+// 2. If cache miss, query database
+// 3. Store result in cache for future requests
 func (s *userService) GetUserByEmail(email string) (*models.User, error) {
-	return s.userRepo.FindByEmail(email)
+	ctx := context.Background()
+	
+	// Try to get from cache first
+	user, err := s.cache.GetUserByEmail(ctx, email)
+	if err == nil {
+		// Cache hit - return cached user
+		return user, nil
+	}
+	
+	// Cache miss or error - fallback to database
+	if !errors.Is(err, cache.ErrCacheMiss) {
+		// Log cache error but continue to database
+		// In production, you might want to log this
+	}
+	
+	user, err = s.userRepo.FindByEmail(email)
+	if err != nil {
+		if errors.Is(err, repositories.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	
+	// Store in cache for future requests (best effort - don't fail on cache error)
+	if err := s.cache.SetUserByEmail(ctx, email, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+	}
+	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+	}
+	
+	return user, nil
 }
 
 // GetAllUsers retrieves all users
@@ -90,6 +165,8 @@ func (s *userService) GetAllUsers() ([]models.User, error) {
 
 // UpdateUser updates a user with business logic validation
 func (s *userService) UpdateUser(id int, input *UpdateUserInput) (*models.User, error) {
+	ctx := context.Background()
+	
 	// Get existing user
 	user, err := s.userRepo.FindByID(id)
 	if err != nil {
@@ -98,6 +175,9 @@ func (s *userService) UpdateUser(id int, input *UpdateUserInput) (*models.User, 
 		}
 		return nil, err
 	}
+
+	// Store old email for cache invalidation if email is being changed
+	oldEmail := user.Email
 
 	// Validate at least one field is being updated
 	if input.FirstName == nil && input.LastName == nil && input.Email == nil &&
@@ -150,18 +230,56 @@ func (s *userService) UpdateUser(id int, input *UpdateUserInput) (*models.User, 
 		return nil, err
 	}
 
+	// Invalidate cache - delete old entries
+	// If email changed, delete both old and new email keys
+	if input.Email != nil && *input.Email != oldEmail {
+		// Delete old email key
+		s.cache.DeleteUserByEmail(ctx, oldEmail)
+		// Delete ID key (will be repopulated on next read)
+		s.cache.DeleteUserByID(ctx, id)
+	} else {
+		// Delete all cached entries for this user (both ID and email)
+		s.cache.DeleteUser(ctx, id, user.Email)
+	}
+
+	// Store updated user in cache for future requests
+	if err := s.cache.SetUserByID(ctx, user.ID, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+	}
+	if err := s.cache.SetUserByEmail(ctx, user.Email, user, cache.UserCacheTTL); err != nil {
+		// Log error but don't fail the request - cache is best effort
+	}
+
 	return user, nil
 }
 
 // DeleteUser deletes a user
 func (s *userService) DeleteUser(id int) error {
-	err := s.userRepo.Delete(id)
+	ctx := context.Background()
+	
+	// Get user first to get email for cache invalidation
+	user, err := s.userRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, repositories.ErrUserNotFound) {
 			return ErrUserNotFound
 		}
 		return err
 	}
+	
+	email := user.Email
+	
+	// Delete from database
+	err = s.userRepo.Delete(id)
+	if err != nil {
+		if errors.Is(err, repositories.ErrUserNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+	
+	// Invalidate cache - delete all cached entries for this user
+	s.cache.DeleteUser(ctx, id, email)
+	
 	return nil
 }
 

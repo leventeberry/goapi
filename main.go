@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/leventeberry/goapi/cache"
 	"github.com/leventeberry/goapi/container"
 	"github.com/leventeberry/goapi/docs"
 	"github.com/leventeberry/goapi/initializers"
@@ -43,9 +44,17 @@ func main() {
 	// Initialize environment variables, database connection, and run migrations
 	initializers.Init()
 
+	// Initialize cache client (Redis or no-op)
+	var cacheClient cache.Cache
+	if initializers.RedisClient != nil {
+		cacheClient = cache.NewRedisCache(initializers.RedisClient)
+	} else {
+		cacheClient = cache.NewNoOpCache()
+	}
+
 	// Create dependency injection container using Factory Pattern
 	// This initializes all repositories, services, and their dependencies
-	appContainer := container.NewContainer(initializers.DB)
+	appContainer := container.NewContainer(initializers.DB, cacheClient)
 
 	// Create a Gin router
 	router := gin.New()
