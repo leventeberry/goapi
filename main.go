@@ -17,7 +17,8 @@ func main() {
     // Create a Gin router
     router := gin.New()
 
-    // Add middleware: custom request logger and recovery
+    // Add middleware: rate limiter, request logger, and recovery
+    router.Use(middleware.RateLimitMiddleware())
     router.Use(middleware.RequestLogger())
     router.Use(gin.Recovery())
 
