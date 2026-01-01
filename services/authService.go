@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/leventeberry/goapi/middleware"
 	"github.com/leventeberry/goapi/models"
 	"github.com/leventeberry/goapi/repositories"
@@ -55,7 +57,7 @@ func (s *authService) Register(input *RegisterInput) (*models.User, *middleware.
 	// Check if email exists
 	exists, err := s.userRepo.ExistsByEmail(input.Email)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to check email existence during registration: %w", err)
 	}
 	if exists {
 		return nil, nil, ErrEmailExists
@@ -78,7 +80,7 @@ func (s *authService) Register(input *RegisterInput) (*models.User, *middleware.
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create user during registration: %w", err)
 	}
 
 	// Generate JWT token with user role

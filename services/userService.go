@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/leventeberry/goapi/cache"
@@ -43,7 +44,7 @@ func (s *userService) CreateUser(ctx context.Context, input *CreateUserInput) (*
 	// Check if email already exists
 	exists, err := s.userRepo.ExistsByEmail(input.Email)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to check email existence: %w", err)
 	}
 	if exists {
 		return nil, ErrEmailExists
@@ -67,7 +68,7 @@ func (s *userService) CreateUser(ctx context.Context, input *CreateUserInput) (*
 
 	// Save to database
 	if err := s.userRepo.Create(user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	// Store in cache after successful creation
@@ -103,7 +104,7 @@ func (s *userService) GetUserByID(ctx context.Context, id int) (*models.User, er
 		if errors.Is(err, repositories.ErrUserNotFound) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by ID %d: %w", id, err)
 	}
 
 	// Store in cache for future requests (best effort - don't fail on cache error)
@@ -139,7 +140,7 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*models
 		if errors.Is(err, repositories.ErrUserNotFound) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by email %s: %w", email, err)
 	}
 
 	// Store in cache for future requests (best effort - don't fail on cache error)
@@ -174,7 +175,11 @@ func (s *userService) GetAllUsersPaginated(ctx context.Context, params *Paginati
 		pageSize = 100 // Max page size to prevent abuse
 	}
 
-	return s.userRepo.FindAllWithPagination(page, pageSize)
+	users, total, err := s.userRepo.FindAllWithPagination(page, pageSize)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get paginated users: %w", err)
+	}
+	return users, total, nil
 }
 
 // UpdateUser updates a user with business logic validation
@@ -185,7 +190,7 @@ func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserI
 		if errors.Is(err, repositories.ErrUserNotFound) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by ID %d for update: %w", id, err)
 	}
 
 	// Store old email for cache invalidation if email is being changed
@@ -216,7 +221,7 @@ func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserI
 		if normalizedInputEmail != normalizedCurrentEmail {
 			exists, err := s.userRepo.ExistsByEmail(*input.Email)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to check email existence for update: %w", err)
 			}
 			if exists {
 				return nil, ErrEmailExists
@@ -244,7 +249,7 @@ func (s *userService) UpdateUser(ctx context.Context, id int, input *UpdateUserI
 
 	// Save updates
 	if err := s.userRepo.Update(user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to update user ID %d: %w", id, err)
 	}
 
 	// Invalidate cache - delete old entries
@@ -289,7 +294,7 @@ func (s *userService) DeleteUser(ctx context.Context, id int) error {
 		if errors.Is(err, repositories.ErrUserNotFound) {
 			return ErrUserNotFound
 		}
-		return err
+		return fmt.Errorf("failed to delete user ID %d: %w", id, err)
 	}
 
 	// Invalidate cache - delete all cached entries for this user

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/leventeberry/goapi/models"
@@ -30,7 +31,10 @@ func normalizeEmail(email string) string {
 func (r *userRepository) Create(user *models.User) error {
 	// Normalize email before saving
 	user.Email = normalizeEmail(user.Email)
-	return r.db.Create(user).Error
+	if err := r.db.Create(user).Error; err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+	return nil
 }
 
 // FindByID retrieves a user by their ID
@@ -41,7 +45,7 @@ func (r *userRepository) FindByID(id int) (*models.User, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to find user by ID %d: %w", id, err)
 	}
 	return &user, nil
 }
@@ -57,7 +61,7 @@ func (r *userRepository) FindByEmail(email string) (*models.User, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrUserNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to find user by email %s: %w", email, err)
 	}
 	return &user, nil
 }
@@ -65,9 +69,8 @@ func (r *userRepository) FindByEmail(email string) (*models.User, error) {
 // FindAll retrieves all users from the database
 func (r *userRepository) FindAll() ([]models.User, error) {
 	var users []models.User
-	err := r.db.Find(&users).Error
-	if err != nil {
-		return nil, err
+	if err := r.db.Find(&users).Error; err != nil {
+		return nil, fmt.Errorf("failed to find all users: %w", err)
 	}
 	return users, nil
 }
@@ -79,16 +82,15 @@ func (r *userRepository) FindAllWithPagination(page, pageSize int) ([]models.Use
 
 	// Count total records
 	if err := r.db.Model(&models.User{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("failed to count users: %w", err)
 	}
 
 	// Calculate offset
 	offset := (page - 1) * pageSize
 
 	// Retrieve paginated users
-	err := r.db.Offset(offset).Limit(pageSize).Find(&users).Error
-	if err != nil {
-		return nil, 0, err
+	if err := r.db.Offset(offset).Limit(pageSize).Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to find paginated users (page %d, pageSize %d): %w", page, pageSize, err)
 	}
 
 	return users, total, nil
@@ -99,7 +101,10 @@ func (r *userRepository) FindAllWithPagination(page, pageSize int) ([]models.Use
 func (r *userRepository) Update(user *models.User) error {
 	// Normalize email before updating
 	user.Email = normalizeEmail(user.Email)
-	return r.db.Model(user).Updates(user).Error
+	if err := r.db.Model(user).Updates(user).Error; err != nil {
+		return fmt.Errorf("failed to update user ID %d: %w", user.ID, err)
+	}
+	return nil
 }
 
 // Delete removes a user from the database
@@ -120,9 +125,8 @@ func (r *userRepository) ExistsByEmail(email string) (bool, error) {
 	email = normalizeEmail(email)
 	var count int64
 	// Use LOWER() for defensive case-insensitive matching (handles existing mixed-case data)
-	err := r.db.Model(&models.User{}).Where("LOWER(email) = LOWER(?)", email).Count(&count).Error
-	if err != nil {
-		return false, err
+	if err := r.db.Model(&models.User{}).Where("LOWER(email) = LOWER(?)", email).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("failed to check if email %s exists: %w", email, err)
 	}
 	return count > 0, nil
 }
