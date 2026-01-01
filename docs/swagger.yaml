@@ -104,8 +104,8 @@ info:
     API provides user management functionality with JWT-based authentication, role-based
     access control (RBAC), and comprehensive middleware for security and logging.
   license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   termsOfService: http://swagger.io/terms/
   title: GoAPI - RESTful API Template
   version: "1.0"

@@ -1,16 +1,17 @@
 package main
 
 import (
-    "log"
-    "os"
+	"log"
+	"os"
 
-    "github.com/gin-gonic/gin"
-    swaggerFiles "github.com/swaggo/files"
-    ginSwagger "github.com/swaggo/gin-swagger"
-    "github.com/leventeberry/goapi/docs"
-    "github.com/leventeberry/goapi/initializers"
-    "github.com/leventeberry/goapi/middleware"
-    "github.com/leventeberry/goapi/routes"
+	"github.com/gin-gonic/gin"
+	"github.com/leventeberry/goapi/container"
+	"github.com/leventeberry/goapi/docs"
+	"github.com/leventeberry/goapi/initializers"
+	"github.com/leventeberry/goapi/middleware"
+	"github.com/leventeberry/goapi/routes"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title           GoAPI - RESTful API Template
@@ -22,8 +23,8 @@ import (
 // @contact.url    http://www.swagger.io/support
 // @contact.email  support@swagger.io
 
-// @license.name  Apache 2.0
-// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
 
 // @host      localhost:8080
 // @BasePath  /
@@ -34,34 +35,38 @@ import (
 // @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
-    // Initialize Swagger docs
-    docs.SwaggerInfo.Host = "localhost:8080"
-    docs.SwaggerInfo.BasePath = "/"
-    docs.SwaggerInfo.Schemes = []string{"http", "https"}
+	// Initialize Swagger docs
+	docs.SwaggerInfo.Host = "localhost:8080"
+	docs.SwaggerInfo.BasePath = "/"
+	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 
-    // Initialize environment variables, database connection, and run migrations
-    initializers.Init()
+	// Initialize environment variables, database connection, and run migrations
+	initializers.Init()
 
-    // Create a Gin router
-    router := gin.New()
+	// Create dependency injection container using Factory Pattern
+	// This initializes all repositories, services, and their dependencies
+	appContainer := container.NewContainer(initializers.DB)
 
-    // Add middleware: rate limiter, request logger, and recovery
-    router.Use(middleware.RateLimitMiddleware())
-    router.Use(middleware.RequestLogger())
-    router.Use(gin.Recovery())
+	// Create a Gin router
+	router := gin.New()
 
-    // Register all routes
-    routes.SetupRoutes(router, initializers.DB)
+	// Add middleware: rate limiter, request logger, and recovery
+	router.Use(middleware.RateLimitMiddleware())
+	router.Use(middleware.RequestLogger())
+	router.Use(gin.Recovery())
 
-    // Swagger documentation endpoint
-    router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Register all routes with dependency injection
+	routes.SetupRoutes(router, appContainer)
 
-    // Start server on specified PORT or default to 8080
-    port := os.Getenv("PORT")
-    if port == "" {
-        port = "8080"
-    }
-    if err := router.Run(":" + port); err != nil {
-        log.Fatalf("failed to start server: %v", err)
-    }
+	// Swagger documentation endpoint
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Start server on specified PORT or default to 8080
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if err := router.Run(":" + port); err != nil {
+		log.Fatalf("failed to start server: %v", err)
+	}
 }
