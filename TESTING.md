@@ -6,6 +6,7 @@ Before testing, ensure:
 1. Database is running (PostgreSQL)
 2. `.env` file is configured with database credentials
 3. Server is running: `make run` or `go run main.go`
+4. Redis (optional) - For testing Redis caching features
 
 ## Quick Test Commands
 
@@ -176,6 +177,8 @@ Invoke-RestMethod -Uri "http://localhost:8080/users" -Method GET -Headers $heade
 #### Rate Limiting
 - Test: Make 70 requests in quick succession
 - Expected: First 60 succeed, then 429 Too Many Requests
+- **With Redis**: Rate limits are shared across all API instances
+- **Without Redis**: Rate limits are per-instance (in-memory)
 
 #### Request Logging
 - Check server logs for request details
@@ -302,6 +305,260 @@ For full integration testing with a test database:
 4. Execute test suite
 5. Clean up test data
 
+## Redis Caching Tests
+
+### Test 1: Application with Redis Disabled
+
+**Setup:**
+```bash
+# Set REDIS_ENABLED=false in .env or don't set it
+REDIS_ENABLED=false
+```
+
+**Expected Behavior:**
+- ✅ Application starts successfully
+- ✅ No Redis connection errors
+- ✅ User operations work normally
+- ✅ Rate limiting uses in-memory storage
+- ✅ No cache entries in Redis (if Redis is running but disabled)
+
+**Validation:**
+```bash
+# Check logs for "Redis is disabled"
+# All user operations should work normally
+# Rate limiting should work per-instance
+```
+
+### Test 2: Application with Redis Enabled
+
+**Setup:**
+```bash
+# Start Redis (if using Docker)
+docker run -d -p 6379:6379 redis:7-alpine
+
+# Or use docker-compose
+make docker-up
+
+# Set in .env
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+**Expected Behavior:**
+- ✅ Application connects to Redis on startup
+- ✅ Log shows "Redis connection established"
+- ✅ User caching works (faster subsequent lookups)
+- ✅ Rate limiting uses Redis (distributed)
+
+**Validation:**
+```bash
+# Check Redis for cached keys
+docker exec -it goapi_redis redis-cli
+> KEYS *
+> GET user:id:1
+> GET ratelimit:127.0.0.1
+```
+
+### Test 3: User Caching - Cache Hits
+
+**Steps:**
+1. Get user by ID: `GET /users/1` (first request - cache miss)
+2. Get same user again: `GET /users/1` (should be faster - cache hit)
+3. Get user by email: `GET /users?email=test@example.com` (cache miss)
+4. Get same user by email again (cache hit)
+
+**Expected:**
+- ✅ First request queries database
+- ✅ Second request uses cache (faster response)
+- ✅ Both ID and email keys are cached
+- ✅ Cache TTL is 15 minutes
+
+**Validation:**
+```bash
+# Check Redis keys
+redis-cli KEYS "user:*"
+# Should see: user:id:1 and user:email:test@example.com
+```
+
+### Test 4: Cache Invalidation on Update
+
+**Steps:**
+1. Get user: `GET /users/1` (caches user)
+2. Update user: `PUT /users/1` with new data
+3. Get user again: `GET /users/1` (should have updated data)
+
+**Expected:**
+- ✅ Cache is invalidated on update
+- ✅ Updated user is stored in cache
+- ✅ Old cache entries are deleted
+- ✅ Response contains updated data
+
+**Validation:**
+```bash
+# Before update
+redis-cli GET "user:id:1"
+
+# After update
+redis-cli GET "user:id:1"
+# Should show updated user data
+```
+
+### Test 5: Cache Invalidation on Delete
+
+**Steps:**
+1. Get user: `GET /users/1` (caches user)
+2. Delete user: `DELETE /users/1` (admin only)
+3. Try to get deleted user: `GET /users/1` (should return 404)
+
+**Expected:**
+- ✅ Cache entries are deleted when user is deleted
+- ✅ Both ID and email keys are removed
+- ✅ Subsequent requests return 404
+
+**Validation:**
+```bash
+# After delete
+redis-cli KEYS "user:*1*"
+# Should return empty (no keys)
+```
+
+### Test 6: Cache Invalidation on Email Change
+
+**Steps:**
+1. Get user: `GET /users/1` (caches with old email)
+2. Update email: `PUT /users/1` with new email
+3. Get user by old email (should not find in cache)
+4. Get user by new email (should find in cache)
+
+**Expected:**
+- ✅ Old email cache key is deleted
+- ✅ New email cache key is created
+- ✅ ID cache key is updated
+- ✅ No stale data in cache
+
+### Test 7: Distributed Rate Limiting
+
+**Setup:**
+- Start two API instances (different ports)
+- Both connected to same Redis instance
+
+**Steps:**
+1. Make 30 requests to instance 1
+2. Make 30 requests to instance 2
+3. Make 1 more request to either instance
+
+**Expected:**
+- ✅ Total requests across both instances = 60
+- ✅ 61st request should return 429 (rate limit exceeded)
+- ✅ Rate limit is shared across instances
+
+**Validation:**
+```bash
+# Check rate limit in Redis
+redis-cli GET "ratelimit:127.0.0.1"
+# Should show count across all instances
+```
+
+### Test 8: Graceful Degradation - Redis Unavailable
+
+**Setup:**
+1. Start application with Redis enabled
+2. Stop Redis while application is running
+
+**Expected:**
+- ✅ Application continues to work
+- ✅ Cache operations fail gracefully (no-op)
+- ✅ Rate limiting falls back to in-memory
+- ✅ No application crashes
+
+**Validation:**
+```bash
+# Stop Redis
+docker stop goapi_redis
+
+# Make API requests - should still work
+curl http://localhost:8080/users/1
+
+# Check logs - should show cache errors but continue
+```
+
+### Test 9: Cache TTL Expiration
+
+**Steps:**
+1. Get user: `GET /users/1` (caches user)
+2. Wait 16 minutes (or manually expire in Redis)
+3. Get user again: `GET /users/1`
+
+**Expected:**
+- ✅ Cache expires after 15 minutes
+- ✅ Request after expiration queries database
+- ✅ User is re-cached after expiration
+
+**Validation:**
+```bash
+# Check TTL
+redis-cli TTL "user:id:1"
+# Should show seconds remaining (max 900 = 15 minutes)
+
+# Manually expire for testing
+redis-cli EXPIRE "user:id:1" 0
+```
+
+### Test 10: Cache Performance Comparison
+
+**Setup:**
+- Test with Redis enabled vs disabled
+
+**Steps:**
+1. Make 100 requests to `GET /users/1` with Redis
+2. Make 100 requests to `GET /users/1` without Redis
+3. Compare response times
+
+**Expected:**
+- ✅ Cached requests are significantly faster
+- ✅ First request (cache miss) is slower
+- ✅ Subsequent requests (cache hits) are faster
+
+**Validation:**
+```bash
+# With Redis (after first request)
+time curl http://localhost:8080/users/1
+# Should be < 10ms
+
+# Without Redis
+time curl http://localhost:8080/users/1
+# Should be > 50ms (database query)
+```
+
+## Redis Testing Checklist
+
+### Basic Functionality
+- [ ] Application starts with Redis disabled (no-op cache)
+- [ ] Application starts with Redis enabled
+- [ ] Application starts with Redis unavailable (graceful degradation)
+- [ ] User caching works (cache hits/misses)
+- [ ] Cache invalidation on user update
+- [ ] Cache invalidation on user delete
+- [ ] Cache invalidation on email change
+- [ ] Cache TTL expiration works
+
+### Rate Limiting
+- [ ] In-memory rate limiting works (Redis disabled)
+- [ ] Redis rate limiting works (Redis enabled)
+- [ ] Distributed rate limiting across instances
+- [ ] Rate limit fallback when Redis unavailable
+
+### Performance
+- [ ] Cached requests are faster than database queries
+- [ ] Cache reduces database load
+- [ ] No performance degradation when Redis unavailable
+
+### Error Handling
+- [ ] Application continues when Redis connection fails
+- [ ] Cache errors don't crash application
+- [ ] Rate limiting works even if Redis fails
+
 ## Continuous Integration
 
 Example CI/CD test command:
@@ -312,5 +569,11 @@ Example CI/CD test command:
   run: |
     go test -v -coverprofile=coverage.out ./...
     go tool cover -html=coverage.out -o coverage.html
+
+- name: Test with Redis
+  run: |
+    docker run -d -p 6379:6379 redis:7-alpine
+    export REDIS_ENABLED=true
+    go test -v ./...
 ```
 
