@@ -128,6 +128,26 @@ docker-shell-redis: ## Open Redis CLI in Redis container
 	@echo "$(GREEN)Opening Redis CLI...$(NC)"
 	$(DOCKER_COMPOSE) exec redis redis-cli
 
+docker-logs-redis-commander: ## View Redis Commander logs
+	@echo "$(GREEN)Viewing Redis Commander logs...$(NC)"
+	$(DOCKER_COMPOSE) logs -f redis-commander
+
+docker-logs-pgadmin: ## View pgAdmin logs
+	@echo "$(GREEN)Viewing pgAdmin logs...$(NC)"
+	$(DOCKER_COMPOSE) logs -f pgadmin
+
+docker-open-redis-commander: ## Open Redis Commander in browser
+	@echo "$(GREEN)Opening Redis Commander at http://localhost:8081$(NC)"
+	@echo "$(YELLOW)Username: admin$(NC)"
+	@echo "$(YELLOW)Password: admin$(NC)"
+	@$(if $(shell which start 2>/dev/null),start http://localhost:8081,echo "Please open http://localhost:8081 in your browser")
+
+docker-open-pgadmin: ## Open pgAdmin in browser
+	@echo "$(GREEN)Opening pgAdmin at http://localhost:5050$(NC)"
+	@echo "$(YELLOW)Email: admin@goapi.com$(NC)"
+	@echo "$(YELLOW)Password: admin$(NC)"
+	@$(if $(shell which start 2>/dev/null),start http://localhost:5050,echo "Please open http://localhost:5050 in your browser")
+
 # Database Commands
 db-migrate: ## Run database migrations (local)
 	@echo "$(GREEN)Running database migrations...$(NC)"

@@ -215,6 +215,8 @@ make docker-logs-api
 - `make docker-shell-api` - Open shell in API container
 - `make docker-shell-db` - Open PostgreSQL shell in database container
 - `make docker-shell-redis` - Open Redis CLI in Redis container
+- `make docker-open-redis-commander` - Open Redis Commander web UI in browser
+- `make docker-open-pgadmin` - Open pgAdmin web UI in browser
 
 **Documentation:**
 - `make swagger` - Generate Swagger documentation (auto-installs swag if needed)
@@ -273,10 +275,12 @@ The easiest way to run the entire application stack (API + PostgreSQL) is using 
    make docker-logs-api
    ```
 
-5. **Access the API**
+5. **Access the API and Admin Tools**
    - API: `http://localhost:8080`
    - Swagger UI: `http://localhost:8080/swagger/index.html`
    - PostgreSQL: `localhost:5432`
+   - **Redis Commander**: `http://localhost:8081` (Username: `admin`, Password: `admin`)
+   - **pgAdmin**: `http://localhost:5050` (Email: `admin@goapi.com`, Password: `admin`)
 
 6. **Stop services**
    ```bash
@@ -311,6 +315,8 @@ docker-compose down -v
 - **`api`**: Go API application (port 8080)
 - **`db`**: PostgreSQL 16 database (port 5432)
 - **`redis`**: Redis 7 cache server (port 6379)
+- **`redis-commander`**: Redis Commander web UI (port 8081) - Admin interface for Redis
+- **`pgadmin`**: pgAdmin 4 web UI (port 5050) - Admin interface for PostgreSQL
 
 ### Default Database Credentials (Docker)
 
