@@ -10,6 +10,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// User cache methods use the following key patterns:
+// - GetUserByID / SetUserByID: "user:id:{id}"
+// - GetUserByEmail / SetUserByEmail: "user:email:{email}"
+// - DeleteUser: deletes both ID and email keys for a user
+
 // redisCache implements Cache interface using Redis
 type redisCache struct {
 	client *redis.Client
