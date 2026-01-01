@@ -9,7 +9,6 @@ import (
     "github.com/golang-jwt/jwt/v5"
     "github.com/google/uuid"
     "github.com/leventeberry/goapi/config"
-    "github.com/leventeberry/goapi/repositories"
 )
 
 // getTokenExpirationDays returns the JWT token expiration days from configuration
@@ -21,6 +20,7 @@ func getTokenExpirationDays() int {
 // Claims defines the JWT payload structure.
 type Claims struct {
     ApiKey string `json:"api_key"`
+    Role   string `json:"role"`
     jwt.RegisteredClaims
 }
 
@@ -63,14 +63,15 @@ func AuthMiddleware() gin.HandlerFunc {
         // Store claims in context
         c.Set("apiKey", claims.ApiKey)
         c.Set("userID", claims.Subject)
+        c.Set("role", claims.Role)
         c.Set("expiresAt", claims.ExpiresAt.Time)
 
         c.Next()
     }
 }
 
-// CreateToken generates a new JWT token (and API key) for the given user ID.
-func CreateToken(userID int) (*Authentication, error) {
+// CreateToken generates a new JWT token (and API key) for the given user ID and role.
+func CreateToken(userID int, role string) (*Authentication, error) {
     cfg := config.Get()
     jwtSecret := []byte(cfg.JWT.Secret)
     apiKey := uuid.NewString()
@@ -78,6 +79,7 @@ func CreateToken(userID int) (*Authentication, error) {
 
     claims := Claims{
         ApiKey: apiKey,
+        Role:   role,
         RegisteredClaims: jwt.RegisteredClaims{
             Subject:   strconv.Itoa(userID),
             IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -98,35 +100,27 @@ func CreateToken(userID int) (*Authentication, error) {
 }
 
 // RequireRole returns a middleware that checks if the authenticated user has one of the required roles.
-// This middleware must be used after AuthMiddleware, as it relies on userID being set in the context.
-// Uses dependency injection to access user repository
-func RequireRole(userRepo repositories.UserRepository, allowedRoles ...string) gin.HandlerFunc {
+// This middleware must be used after AuthMiddleware, as it relies on role being set in the context.
+// Role is now stored in JWT token claims, eliminating the need for database queries.
+func RequireRole(allowedRoles ...string) gin.HandlerFunc {
     return func(c *gin.Context) {
-        // Get userID from context (set by AuthMiddleware)
-        userIDStr, exists := c.Get("userID")
+        // Get role from context (set by AuthMiddleware from JWT claims)
+        role, exists := c.Get("role")
         if !exists {
-            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "User role not found in context"})
             return
         }
 
-        // Convert userID string to int
-        userID, err := strconv.ParseInt(userIDStr.(string), 10, 64)
-        if err != nil || userID < 1 {
-            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
-            return
-        }
-
-        // Query database for user's role using repository
-        user, err := userRepo.FindByID(int(userID))
-        if err != nil {
-            c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        roleStr, ok := role.(string)
+        if !ok || roleStr == "" {
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Invalid role format in token"})
             return
         }
 
         // Check if user's role is in the allowed roles list
         hasRole := false
-        for _, role := range allowedRoles {
-            if user.Role == role {
+        for _, allowedRole := range allowedRoles {
+            if roleStr == allowedRole {
                 hasRole = true
                 break
             }
@@ -137,8 +131,6 @@ func RequireRole(userRepo repositories.UserRepository, allowedRoles ...string) g
             return
         }
 
-        // Store user object in context for use in handlers
-        c.Set("user", user)
         c.Next()
     }
 }

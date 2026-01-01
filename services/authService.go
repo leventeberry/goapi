@@ -27,8 +27,8 @@ func (s *authService) Login(email, password string) (*models.User, *middleware.A
 		return nil, nil, err
 	}
 
-	// Generate JWT token
-	token, err := middleware.CreateToken(user.ID)
+	// Generate JWT token with user role
+	token, err := middleware.CreateToken(user.ID, user.Role)
 	if err != nil {
 		return nil, nil, ErrTokenGeneration
 	}
@@ -81,8 +81,8 @@ func (s *authService) Register(input *RegisterInput) (*models.User, *middleware.
 		return nil, nil, err
 	}
 
-	// Generate JWT token
-	token, err := middleware.CreateToken(user.ID)
+	// Generate JWT token with user role
+	token, err := middleware.CreateToken(user.ID, user.Role)
 	if err != nil {
 		return nil, nil, ErrTokenGeneration
 	}

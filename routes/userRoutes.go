@@ -23,6 +23,6 @@ func SetupUserRoutes(router *gin.Engine, c *container.Container) {
 		userGroup.PUT("/:id", controllers.UpdateUser(c.UserService))
 
 		// Admin-only routes (require admin role)
-		userGroup.DELETE("/:id", middleware.RequireRole(c.UserRepository, "admin"), controllers.DeleteUser(c.UserService))
+		userGroup.DELETE("/:id", middleware.RequireRole("admin"), controllers.DeleteUser(c.UserService))
 	}
 }
