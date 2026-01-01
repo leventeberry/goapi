@@ -122,12 +122,12 @@ func CreateUser(db *gorm.DB) gin.HandlerFunc {
 
 // UpdateUserInput holds the data for updating a user.
 type UpdateUserInput struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	FirstName string `json:"first_name" binding:"omitempty,min=1,max=50"`
+	LastName  string `json:"last_name" binding:"omitempty,min=1,max=50"`
 	Email     string `json:"email" binding:"omitempty,email"`
 	Password  string `json:"password" binding:"omitempty,min=8"`
-	PhoneNum  string `json:"phone_number"`
-	Role      string `json:"role"`
+	PhoneNum  string `json:"phone_number" binding:"omitempty,max=20"`
+	Role      string `json:"role" binding:"omitempty"`
 }
 
 func UpdateUser(db *gorm.DB) gin.HandlerFunc {
@@ -143,7 +143,14 @@ func UpdateUser(db *gorm.DB) gin.HandlerFunc {
 		// 2. Bind incoming JSON into input struct
 		var input UpdateUserInput
 		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// 2a. Validate that at least one field is being updated
+		if input.FirstName == "" && input.LastName == "" && input.Email == "" &&
+			input.Password == "" && input.PhoneNum == "" && input.Role == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "At least one field must be provided for update"})
 			return
 		}
 
