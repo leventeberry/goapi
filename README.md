@@ -2,6 +2,30 @@
 
 A RESTful API built with Go (Golang) using the Gin web framework. This API provides user management functionality with JWT-based authentication, role-based access control (RBAC), and comprehensive middleware for security and logging.
 
+## Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Makefile Commands](#makefile-commands)
+- [Docker Setup](#docker-setup)
+- [API Documentation](#api-documentation)
+- [API Endpoints](#api-endpoints)
+  - [Public Endpoints](#public-endpoints)
+  - [Protected Endpoints](#protected-endpoints-require-authentication)
+- [Authentication](#authentication)
+- [User Model](#user-model)
+- [Middleware](#middleware)
+- [Caching](#caching)
+- [Database](#database)
+- [Error Responses](#error-responses)
+- [Security Features](#security-features)
+- [Development](#development)
+- [License](#license)
+- [Contributing](#contributing)
+
 ## Features
 
 - 🔐 **JWT Authentication** - Secure token-based authentication with 60-day expiration
